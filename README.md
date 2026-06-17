@@ -35,13 +35,55 @@ Fluxo: `Registo (utilizador) → Responsável técnico → Reparação → Concl
 Dashboard, ordens com fluxo e permissões por perfil, clientes e técnicos (crescem com o
 uso), agenda semanal por técnico, contas, exportação mensal (CSV/Excel) e notificações.
 
-## ⚠️ Limitação importante (multi-utilizador)
+## Modos de funcionamento
 
-Os dados são guardados em **`localStorage`**, ou seja, **no navegador de cada pessoa**.
-Cada utilizador/dispositivo tem a sua própria base de dados isolada — **os dados não são
-partilhados entre pessoas**. É ideal para demonstração individual da interface, mas para
-um teste colaborativo real (vários utilizadores na mesma base de dados) é necessário um
-**backend com base de dados partilhada**.
+- **Modo local (por defeito):** os dados ficam no `localStorage` de cada navegador. Cada
+  pessoa tem a sua própria base isolada — bom para demonstrar a interface individualmente.
+- **Modo nuvem (partilhado):** ligando ao Supabase (abaixo), todos os colaboradores
+  partilham a **mesma base de dados em tempo real** — o fluxo entre perfis funciona a sério.
+
+O modo atual aparece no menu da conta (canto superior direito).
+
+## Partilhar dados entre colaboradores (Supabase, grátis)
+
+1. Cria uma conta e um projeto em https://supabase.com (plano grátis).
+2. No projeto, abre **SQL Editor** e corre:
+
+   ```sql
+   create table if not exists public.tecnoassist_state (
+     id int primary key,
+     data jsonb,
+     updated_at timestamptz default now()
+   );
+   insert into public.tecnoassist_state (id, data)
+   values (1, '{}'::jsonb) on conflict (id) do nothing;
+
+   alter table public.tecnoassist_state enable row level security;
+   create policy "acesso de teste" on public.tecnoassist_state
+     for all using (true) with check (true);
+
+   -- ativar tempo real
+   alter publication supabase_realtime add table public.tecnoassist_state;
+   ```
+
+3. Em **Project Settings → API**, copia o **Project URL** e a chave **anon public**.
+4. Cola-as em [`js/config.js`](js/config.js):
+
+   ```js
+   window.TECNOASSIST_CONFIG = {
+     SUPABASE_URL: "https://xxxx.supabase.co",
+     SUPABASE_ANON_KEY: "ey...."
+   };
+   ```
+
+5. Faz commit/push. A partir daí, quem abrir a app partilha os mesmos dados em tempo real.
+
+> ⚠️ **Segurança:** a política acima deixa qualquer pessoa com a chave ler/escrever — ok
+> para a **fase de testes**, mas **não** uses dados sensíveis reais assim. Para produção,
+> ativa autenticação do Supabase e políticas (RLS) adequadas. (Posso ajudar a configurar.)
+>
+> Nota: a sincronização usa um documento partilhado (último a gravar prevalece). Para uma
+> equipa pequena de testes é suficiente; edições exatamente simultâneas podem sobrepor-se.
 
 Repor o sistema (apaga ordens/clientes/técnicos, mantém contas): botão **"Repor sistema"**
 na página *Contas* (admin) ou, na consola do navegador, `App.resetData()`.

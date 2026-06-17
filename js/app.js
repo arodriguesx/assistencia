@@ -34,21 +34,64 @@ const App = (() => {
   let agendaWeek = null; // segunda-feira da semana mostrada na agenda
 
   // ---------- persistence ----------
+  function ensureShape(){
+    if(!db.utilizadores) db.utilizadores = JSON.parse(JSON.stringify(DEFAULT_USERS));
+    if(!Array.isArray(db.lojas) || !db.lojas.length) db.lojas = JSON.parse(JSON.stringify(window.SEED.lojas));
+    ["clientes","localizacoes","dispositivos","marcas","tecnicos","ordens"].forEach(k=>{ if(!Array.isArray(db[k])) db[k]=[]; });
+  }
   function load(){
     const saved = localStorage.getItem(KEY);
-    if(saved){ db = JSON.parse(saved); }
-    else { db = JSON.parse(JSON.stringify(window.SEED)); }
-    if(!db.utilizadores) db.utilizadores = JSON.parse(JSON.stringify(DEFAULT_USERS));
-    ["clientes","localizacoes","dispositivos","marcas","tecnicos","ordens"].forEach(k=>{ if(!Array.isArray(db[k])) db[k]=[]; });
-    save();
+    db = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(window.SEED));
+    ensureShape();
+    persistLocal();
   }
   // adiciona um valor à lista (sem duplicar) — os catálogos crescem à medida que se usa
   function pushUnique(arr, val){
     if(val && !arr.some(x=>String(x).toLowerCase()===String(val).toLowerCase())){ arr.push(val); arr.sort((a,b)=>String(a).localeCompare(b)); return true; }
     return false;
   }
-  function save(){ localStorage.setItem(KEY, JSON.stringify(db)); }
-  function resetData(){ localStorage.removeItem(KEY); load(); }
+  function persistLocal(){ localStorage.setItem(KEY, JSON.stringify(db)); }
+  function save(){ persistLocal(); cloudPushDebounced(); }
+  function resetData(){ localStorage.removeItem(KEY); load(); save(); }
+
+  // ---------- sincronização na nuvem (Supabase) — opcional ----------
+  const CFG = window.TECNOASSIST_CONFIG || {};
+  const cloudEnabled = !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY);
+  let supa = null, cloudTimer = null, applyingRemote = false;
+  function cloudPushDebounced(){ if(!cloudEnabled) return; clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudPush, 300); }
+  async function cloudPush(){
+    if(!supa || applyingRemote) return;
+    try{ await supa.from("tecnoassist_state").upsert({ id:1, data:db, updated_at:new Date().toISOString() }); }
+    catch(e){ console.warn("TecnoAssist: falha ao guardar na nuvem", e); }
+  }
+  function applyRemote(remote){
+    if(!remote || typeof remote!=="object" || !Object.keys(remote).length) return;
+    applyingRemote = true; db = remote; ensureShape(); persistLocal(); applyingRemote = false;
+    refreshUI();
+  }
+  async function cloudStart(){
+    if(!cloudEnabled) return;
+    try{
+      const m = await import("https://esm.sh/@supabase/supabase-js@2");
+      supa = m.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+      const { data, error } = await supa.from("tecnoassist_state").select("data").eq("id",1).maybeSingle();
+      if(error) throw error;
+      if(data && data.data && Object.keys(data.data).length) applyRemote(data.data);
+      else await cloudPush(); // primeira vez: envia o estado atual
+      supa.channel("tecnoassist")
+        .on("postgres_changes", {event:"*", schema:"public", table:"tecnoassist_state", filter:"id=eq.1"},
+            p => applyRemote(p.new && p.new.data))
+        .subscribe();
+      setCloudMode(true);
+    }catch(e){ console.warn("TecnoAssist: nuvem indisponível, a usar modo local.", e); setCloudMode(false); }
+  }
+  function setCloudMode(on){ const el=$("#cloud-mode"); if(el) el.textContent = on ? "Sincronizado · nuvem" : "Modo local · este dispositivo"; }
+  function refreshUI(){
+    if(!session) return;
+    if(($("#modal-root").innerHTML||"").trim()!==""){ updateNotif(); return; } // não interromper edição num modal aberto
+    const active = document.querySelector(".page.active");
+    go(active ? active.id.replace("page-","") : "dashboard");
+  }
   function factoryReset(){
     if(!session || session.role!=="admin"){ alert("Só o administrador pode repor o sistema."); return; }
     if(!confirm("Repor o sistema?\n\nIsto APAGA todas as ordens, clientes, técnicos e catálogos inseridos.\nAs contas de acesso e as lojas mantêm-se.\n\nEsta ação não pode ser anulada.")) return;
@@ -142,6 +185,8 @@ const App = (() => {
     $("#acc-menu-name").textContent = session.nome;
     $("#acc-menu-sub").textContent = sub;
     $("#avatar").textContent = (session.nome||"U")[0].toUpperCase();
+    setCloudMode(cloudEnabled ? !!supa : false);
+    if(cloudEnabled && !supa) $("#cloud-mode").textContent = "A ligar à nuvem…";
     const h = new Date().getHours();
     $("#greeting").textContent = (h<12?"Bom dia":h<19?"Boa tarde":"Boa noite") + ", " + session.nome;
 
@@ -760,6 +805,7 @@ const App = (() => {
   // ---------- init ----------
   load();
   applyTheme();
+  cloudStart();
 
   return {login, logout, go, renderTable, openNew, createOrder, openDetail, saveDetail, advance,
           closeModal, resetData, factoryReset, exportMonth, openUser, saveUser, delUser, _toggleLoja, toggleAccount, toggleTheme, setTheme,
