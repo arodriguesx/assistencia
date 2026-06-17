@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TecnoAssist — Gestão de Assistência Técnica</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login" class="login-wrap">
+  <div class="login-card">
+    <div class="brand logo"><span class="logo-mark"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10h3V7L6.5 3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8L7 10z"/></svg></span> TecnoAssist</div>
+    <h1>Entrar</h1>
+    <p class="sub">Plataforma de ordens de serviço. As contas são criadas pelo administrador.</p>
+    <div class="field">
+      <label>Utilizador</label>
+      <input id="login-user" autocomplete="username" placeholder="ex.: admin" onkeydown="if(event.key==='Enter')App.login()">
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input id="login-pass" type="password" autocomplete="current-password" placeholder="••••••" onkeydown="if(event.key==='Enter')App.login()">
+    </div>
+    <p id="login-error" class="login-error hidden">Utilizador ou senha incorretos.</p>
+    <button class="btn primary" style="width:100%;margin-top:8px;padding:12px" onclick="App.login()">Entrar na plataforma</button>
+    <p class="sub" style="margin-top:16px;font-size:12px">Protótipo — contas de teste: <code>admin/admin</code>, <code>gscenter/123</code>, <code>tecnico/123</code>.</p>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="app">
+  <header class="topbar">
+   <div class="topbar-inner">
+    <div class="brand"><span class="logo-mark"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10h3V7L6.5 3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8L7 10z"/></svg></span> TecnoAssist</div>
+    <nav class="nav">
+      <button data-page="dashboard" class="active" onclick="App.go('dashboard')">Dashboard</button>
+      <button data-page="ordens" onclick="App.go('ordens')">Ordens de serviço</button>
+      <button data-page="clientes" onclick="App.go('clientes')">Clientes</button>
+      <button data-page="tecnicos" onclick="App.go('tecnicos')">Técnicos</button>
+      <button data-page="agenda" class="agenda-nav" onclick="App.go('agenda')">Agenda</button>
+      <button data-page="utilizadores" class="admin-only" onclick="App.go('utilizadores')">Contas</button>
+    </nav>
+    <div class="topbar-right">
+      <div class="icon-group">
+        <button class="icon-btn theme-toggle" id="theme-toggle" onclick="App.toggleTheme()" title="Alternar tema claro/escuro" aria-label="Alternar tema">
+          <svg class="ic-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="ic-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="7" y2="7"/><line x1="17" y1="17" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="7" y2="17"/><line x1="17" y1="7" x2="19.1" y2="4.9"/></svg>
+        </button>
+        <button class="icon-btn" title="Procurar" onclick="App.go('ordens');setTimeout(()=>document.getElementById('search').focus(),50)" aria-label="Procurar">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+        <div class="notif-wrap" id="notif-wrap">
+          <button class="icon-btn" id="notif-btn" title="Notificações" aria-label="Notificações" onclick="App.toggleNotif(event)">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="notif-count hidden" id="notif-count">0</span>
+          </button>
+          <div class="notif-menu" id="notif-menu">
+            <div class="notif-head"><span>Notificações</span><span class="muted" id="notif-sub"></span></div>
+            <div id="notif-list"></div>
+          </div>
+        </div>
+        <button class="icon-btn" title="Informação" aria-label="Informação">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.6" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="account" id="account" onclick="App.toggleAccount(event)" tabindex="0">
+        <div id="avatar" class="avatar">U</div>
+        <div class="acc-text">
+          <span id="acc-name" class="acc-name">Utilizador</span>
+          <span id="acc-sub" class="acc-sub"></span>
+        </div>
+        <svg class="acc-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <div class="acc-menu" id="acc-menu">
+          <div class="acc-menu-head">
+            <span id="acc-menu-name">Utilizador</span>
+            <span id="acc-menu-sub"></span>
+          </div>
+          <button class="acc-menu-item" onclick="App.logout()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Terminar sessão
+          </button>
+        </div>
+      </div>
+    </div>
+   </div>
+  </header>
+
+  <div class="shell">
+  <main>
+    <!-- DASHBOARD -->
+    <section id="page-dashboard" class="page active">
+      <div class="page-head">
+        <h2 id="greeting">Bom dia</h2>
+        <p>Acompanhe as ordens de serviço, o estado das reparações e a faturação.</p>
+      </div>
+
+      <div class="dash-grid">
+        <!-- HERO: faturação + lojas -->
+        <div class="panel hero">
+          <div class="hero-top">
+            <div>
+              <div class="hero-label">Faturação total</div>
+              <div class="hero-value" id="hero-fatur">0$</div>
+              <div class="hero-trend" id="hero-trend"></div>
+            </div>
+            <span class="hero-tag" id="hero-mes"></span>
+          </div>
+          <div class="hero-actions">
+            <button class="btn dark" onclick="App.openNew()">&#43; Nova ordem</button>
+            <button class="btn ghost" onclick="App.go('ordens')">Ver ordens</button>
+          </div>
+          <div class="hero-wallets">
+            <div class="hw-head"><span id="hero-lojas-label">Lojas</span></div>
+            <div class="hw-grid" id="hero-stores"></div>
+          </div>
+        </div>
+
+        <!-- 2x2 metric cards -->
+        <div class="metrics-2x2" id="kpis"></div>
+
+        <!-- chart: ordens por mês -->
+        <div class="panel chart-card">
+          <div class="chart-head">
+            <div>
+              <h3 style="margin:0">Ordens por mês</h3>
+              <span class="muted" style="font-size:12px">entregues vs em curso</span>
+            </div>
+            <div class="legend">
+              <span><i class="dot dot-orange"></i>Entregues</span>
+              <span><i class="dot dot-dark"></i>Em curso</span>
+            </div>
+          </div>
+          <div class="bars" id="month-bars"></div>
+        </div>
+      </div>
+
+      <div class="dash-grid-2">
+        <div class="side-col">
+          <div class="panel">
+            <h3>Fluxo das ordens <span class="muted">por estágio</span></h3>
+            <div class="flow-list" id="pipeline"></div>
+          </div>
+          <div class="panel">
+            <h3>Top equipamentos <span class="muted">mais frequentes</span></h3>
+            <div class="mini-list" id="top-devices"></div>
+          </div>
+        </div>
+
+        <div class="panel recent-card">
+          <h3>Ordens recentes <span class="muted">últimas registadas</span></h3>
+          <table>
+            <thead><tr><th>OS</th><th>Cliente</th><th>Equipamento</th><th>Estado</th><th>Técnico</th><th style="text-align:right">Preço</th></tr></thead>
+            <tbody id="recent-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ORDENS -->
+    <section id="page-ordens" class="page">
+      <div class="page-head">
+        <h2>Ordens de serviço</h2>
+        <p>Lista mensal. Clica numa linha para ver a ficha e avançar o fluxo.</p>
+      </div>
+      <div class="toolbar">
+        <input type="search" id="search" placeholder="Procurar cliente, equipamento, avaria..." oninput="App.renderTable()">
+        <select id="filter-mes" onchange="App.renderTable()"></select>
+        <select id="filter-estado" onchange="App.renderTable()">
+          <option value="">Todos os estados</option>
+          <option value="registada">Registada</option>
+          <option value="diagnostico">Diagnóstico</option>
+          <option value="reparacao">Em reparação</option>
+          <option value="concluida">Concluída</option>
+          <option value="entregue">Entregue</option>
+        </select>
+        <select id="filter-loja" onchange="App.renderTable()"></select>
+        <button class="btn ghost" onclick="App.exportMonth()" title="Exportar o mês selecionado para Excel/CSV">&#11015; Exportar mês</button>
+        <button class="btn primary new-os-btn" onclick="App.openNew()">+ Nova ordem</button>
+      </div>
+      <div class="panel" style="padding:8px 0">
+        <table>
+          <thead><tr>
+            <th style="padding-left:20px">OS</th><th>Cliente</th><th>Equipamento</th>
+            <th>Estado</th><th>Técnico</th><th>Loja</th><th>Entrada</th><th style="padding-right:20px">Preço</th>
+          </tr></thead>
+          <tbody id="orders-body"></tbody>
+        </table>
+        <div id="orders-empty" class="empty hidden">Nenhuma ordem encontrada.</div>
+      </div>
+    </section>
+
+    <!-- CLIENTES -->
+    <section id="page-clientes" class="page">
+      <div class="page-head">
+        <h2>Clientes</h2>
+        <p>Entidades atendidas. Clica para ver as ordens de cada cliente.</p>
+      </div>
+      <div class="toolbar">
+        <input type="search" id="cli-search" placeholder="Procurar cliente..." oninput="App.renderClientes()">
+        <button class="btn primary spacer cli-add" onclick="App.openClient()">+ Novo cliente</button>
+      </div>
+      <div class="panel" style="padding:8px 0">
+        <table>
+          <thead><tr>
+            <th style="padding-left:20px">Cliente</th><th>Nº de OS</th><th>Em curso</th><th>Localização</th><th>Última entrada</th><th style="padding-right:20px"></th>
+          </tr></thead>
+          <tbody id="clients-body"></tbody>
+        </table>
+        <div id="clients-empty" class="empty hidden">Sem clientes.</div>
+      </div>
+    </section>
+
+    <!-- TÉCNICOS -->
+    <section id="page-tecnicos" class="page">
+      <div class="page-head">
+        <h2>Técnicos</h2>
+        <p>Equipa técnica e respetiva carga de trabalho.</p>
+      </div>
+      <div class="toolbar">
+        <input type="search" id="tec-search" placeholder="Procurar técnico..." oninput="App.renderTecnicos()">
+        <button class="btn primary spacer tec-add" onclick="App.openTecnico()">+ Novo técnico</button>
+      </div>
+      <div class="panel" style="padding:8px 0">
+        <table>
+          <thead><tr>
+            <th style="padding-left:20px">Técnico</th><th>OS atribuídas</th><th>Em curso</th><th>Entregues</th><th>Faturação</th><th style="padding-right:20px"></th>
+          </tr></thead>
+          <tbody id="tecs-body"></tbody>
+        </table>
+        <div id="tecs-empty" class="empty hidden">Sem técnicos.</div>
+      </div>
+    </section>
+
+    <!-- AGENDA (responsável / admin) -->
+    <section id="page-agenda" class="page">
+      <div class="page-head">
+        <h2>Agenda dos técnicos</h2>
+        <p>Trabalhos agendados por técnico ao longo da semana. Clica numa OS para abrir/reagendar.</p>
+      </div>
+      <div class="toolbar agenda-bar">
+        <button class="btn ghost" onclick="App.agendaPrev()" aria-label="Semana anterior">&lsaquo;</button>
+        <button class="btn ghost" onclick="App.agendaToday()">Hoje</button>
+        <button class="btn ghost" onclick="App.agendaNext()" aria-label="Semana seguinte">&rsaquo;</button>
+        <span id="agenda-range" style="font-weight:600;margin-left:8px"></span>
+      </div>
+      <div class="panel" style="padding:0;overflow:auto">
+        <div id="agenda-grid"></div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <h3>Por agendar <span class="muted">OS com técnico atribuído mas sem data</span></h3>
+        <div id="agenda-todo" class="mini-list"></div>
+      </div>
+    </section>
+
+    <!-- CONTAS (admin) -->
+    <section id="page-utilizadores" class="page">
+      <div class="page-head">
+        <h2>Contas</h2>
+        <p>Só o administrador gere contas. Três perfis: Utilizador (regista), Responsável técnico (gere) e Administrador (supervisão).</p>
+      </div>
+      <div class="toolbar">
+        <span style="color:var(--muted);font-size:13px">Gestão de acessos</span>
+        <button class="btn danger spacer" onclick="App.factoryReset()" title="Apaga ordens, clientes, técnicos e catálogos; mantém contas e lojas">&#8635; Repor sistema</button>
+        <button class="btn primary" onclick="App.openUser()">+ Novo utilizador</button>
+      </div>
+      <div class="panel" style="padding:8px 0">
+        <table>
+          <thead><tr>
+            <th style="padding-left:20px">Nome</th><th>Utilizador</th><th>Perfil</th><th>Loja</th><th style="padding-right:20px"></th>
+          </tr></thead>
+          <tbody id="users-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

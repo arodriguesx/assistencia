@@ -1,0 +1,16 @@
+# Dados/origem privados — contêm dados reais de clientes, NÃO publicar
+Assistencia_tecnica.xlsx
+*.xlsx
+*.xlsm
+
+# Imagem de referência de design
+Dashboard design, Dashboard ui, App interface design.jpg
+
+# Config local de pré-visualização (dev)
+.claude/
+
+# Ficheiros temporários
+_*.json
+Thumbs.db
+.DS_Store
+desktop.ini
