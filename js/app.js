@@ -1,5 +1,7 @@
 const App = (() => {
   const KEY = "tecnoassist_db_v4";
+  const SKEY = "tecnoassist_sess";   // sessão atual (utilizador) — sobrevive a refresh
+  const PKEY = "tecnoassist_page";   // última página aberta
   const ESTADOS = ["registada","diagnostico","reparacao","concluida","entregue"];
   const ESTADO_LABEL = {registada:"Registada", diagnostico:"Diagnóstico", reparacao:"Em reparação", concluida:"Concluída", entregue:"Entregue"};
   const ROLE_LABEL = {operador:"Utilizador", responsavel:"Responsável técnico", admin:"Administrador"};
@@ -32,6 +34,7 @@ const App = (() => {
   let session = null;   // current user object
   let prevNotif = null; // última contagem de notificações (para animar quando aumenta)
   let agendaWeek = null; // segunda-feira da semana mostrada na agenda
+  let currentDetailId = null; // OS aberta na ficha (para atualizar em tempo real)
 
   // ---------- persistence ----------
   function ensureShape(){
@@ -86,11 +89,29 @@ const App = (() => {
     }catch(e){ console.warn("TecnoAssist: nuvem indisponível, a usar modo local.", e); setCloudMode(false); }
   }
   function setCloudMode(on){ const el=$("#cloud-mode"); if(el) el.textContent = on ? "Sincronizado · nuvem" : "Modo local · este dispositivo"; }
+  function renderActive(){
+    const active = document.querySelector(".page.active");
+    const p = active ? active.id.replace("page-","") : "dashboard";
+    if(p==="dashboard") renderDashboard();
+    else if(p==="ordens") renderTable();
+    else if(p==="clientes") renderClientes();
+    else if(p==="tecnicos") renderTecnicos();
+    else if(p==="agenda") renderAgenda();
+    else if(p==="utilizadores") renderUsers();
+  }
   function refreshUI(){
     if(!session) return;
-    if(($("#modal-root").innerHTML||"").trim()!==""){ updateNotif(); return; } // não interromper edição num modal aberto
-    const active = document.querySelector(".page.active");
-    go(active ? active.id.replace("page-","") : "dashboard");
+    renderActive();        // atualiza a lista/dashboard por baixo
+    updateNotif();
+    // se a ficha de uma OS está aberta, atualiza o estado em tempo real —
+    // mas não interrompe quem está a escrever num campo do modal
+    const mr = $("#modal-root");
+    const modalOpen = mr && (mr.innerHTML||"").trim()!=="";
+    if(modalOpen && currentDetailId){
+      const ae = document.activeElement;
+      const typing = mr.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName||"");
+      if(!typing && db.ordens.some(o=>o.id===currentDetailId)) openDetail(currentDetailId);
+    }
   }
   function factoryReset(){
     if(!session || session.role!=="admin"){ alert("Só o administrador pode repor o sistema."); return; }
@@ -135,6 +156,7 @@ const App = (() => {
     if(!acc){ $("#login-error").classList.remove("hidden"); return; }
     $("#login-error").classList.add("hidden");
     session = {nome:acc.nome, role:acc.role, store:acc.loja, user:acc.user};
+    localStorage.setItem(SKEY, acc.user);
     $("#login-pass").value="";
     $("#login").classList.add("hidden");
     $("#app").classList.add("active");
@@ -143,10 +165,23 @@ const App = (() => {
   function logout(){
     session = null;
     prevNotif = null;
+    localStorage.removeItem(SKEY);
+    localStorage.removeItem(PKEY);
     document.body.classList.remove("role-admin");
     $("#account").classList.remove("open");
     $("#app").classList.remove("active");
     $("#login").classList.remove("hidden");
+  }
+  // repõe a sessão após um refresh, mantendo a página onde estava
+  function restoreSession(){
+    const u = localStorage.getItem(SKEY);
+    if(!u) return;
+    const acc = (db.utilizadores||[]).find(x=>x.user===u);
+    if(!acc){ localStorage.removeItem(SKEY); return; }
+    session = {nome:acc.nome, role:acc.role, store:acc.loja, user:acc.user};
+    $("#login").classList.add("hidden");
+    $("#app").classList.add("active");
+    boot(localStorage.getItem(PKEY) || "dashboard");
   }
 
   function toggleTheme(){
@@ -177,7 +212,7 @@ const App = (() => {
   }
 
   // ---------- boot after login ----------
-  function boot(){
+  function boot(target){
     document.body.classList.toggle("role-admin", session.role==="admin");
     const sub = ROLE_LABEL[session.role] + " · " + (seesAllStores() ? "Todas as lojas" : lojaNome(session.store));
     $("#acc-name").textContent = session.nome;
@@ -206,7 +241,7 @@ const App = (() => {
     } else { fl.style.display="none"; fl.value=""; }
 
     buildMonthFilter();
-    go("dashboard");
+    go(target || "dashboard");
   }
 
   function buildMonthFilter(){
@@ -225,6 +260,7 @@ const App = (() => {
   function go(page){
     if(page==="utilizadores" && session.role!=="admin") page="dashboard";
     if(page==="agenda" && !canManageTecnicos()) page="dashboard";
+    localStorage.setItem(PKEY, page);
     document.querySelectorAll(".nav button, .rail-nav .rail-btn").forEach(b=>b.classList.toggle("active", b.dataset.page===page));
     document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
     $("#page-"+page).classList.add("active");
@@ -399,11 +435,12 @@ const App = (() => {
   }
 
   // ---------- modals ----------
-  function closeModal(){ $("#modal-root").innerHTML=""; }
+  function closeModal(){ $("#modal-root").innerHTML=""; currentDetailId = null; }
   function opt(arr,sel){return arr.map(v=>`<option ${v===sel?"selected":""}>${esc(v)}</option>`).join("");}
 
   function openNew(){
     if(!can("createOrder")){ alert("O teu perfil não regista ordens."); return; }
+    currentDetailId = null;
     const lojas = seesAllStores() ? window.SEED.lojas : window.SEED.lojas.filter(l=>l.id===session.store);
     $("#modal-root").innerHTML = `
     <div class="modal-bg" onclick="if(event.target===this)App.closeModal()">
@@ -458,6 +495,7 @@ const App = (() => {
 
   function openDetail(id){
     const o = db.ordens.find(x=>x.id===id); if(!o) return;
+    currentDetailId = id;
     const idx = ESTADOS.indexOf(o.estado);
     const flow = FLOW.map((s,i)=>`<div class="flow-step ${i<idx?'done':i===idx?'current':''}">${s.label}</div>`).join('<span style="color:#bbb">&rsaquo;</span>');
     const mayAdvance = o.estado!=="entregue" && (ADVANCE_PERM[o.estado]||[]).includes(session.role);
@@ -571,6 +609,7 @@ const App = (() => {
   function clienteOrders(nome){ go("ordens"); $("#search").value=nome; if($("#filter-mes"))$("#filter-mes").value=""; renderTable(); }
   function openClient(){
     if(!canManageClients()){ alert("O teu perfil não adiciona clientes."); return; }
+    currentDetailId = null;
     $("#modal-root").innerHTML = `
     <div class="modal-bg" onclick="if(event.target===this)App.closeModal()">
       <div class="modal" style="max-width:440px">
@@ -628,6 +667,7 @@ const App = (() => {
   function tecnicoOrders(nome){ go("ordens"); $("#search").value=nome; if($("#filter-mes"))$("#filter-mes").value=""; renderTable(); }
   function openTecnico(){
     if(!canManageTecnicos()){ alert("Só o responsável técnico ou o administrador gerem técnicos."); return; }
+    currentDetailId = null;
     $("#modal-root").innerHTML = `
     <div class="modal-bg" onclick="if(event.target===this)App.closeModal()">
       <div class="modal" style="max-width:440px">
@@ -757,6 +797,7 @@ const App = (() => {
       </tr>`).join("");
   }
   function openUser(i){
+    currentDetailId = null;
     const u = (i!=null) ? db.utilizadores[i] : {nome:"",user:"",pass:"",role:"operador",loja:"Recoshop"};
     const roleOpts = Object.entries(ROLE_LABEL).map(([k,v])=>`<option value="${k}" ${u.role===k?"selected":""}>${v}</option>`).join("");
     const lojaOpts = window.SEED.lojas.map(l=>`<option value="${l.id}" ${u.loja===l.id?"selected":""}>${esc(l.nome)}</option>`).join("");
@@ -805,6 +846,7 @@ const App = (() => {
   // ---------- init ----------
   load();
   applyTheme();
+  restoreSession();
   cloudStart();
 
   return {login, logout, go, renderTable, openNew, createOrder, openDetail, saveDetail, advance,
