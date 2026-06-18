@@ -142,7 +142,7 @@ const App = (() => {
   const can = action => {
     const r = session.role;
     if(r==="admin") return true;
-    if(action==="createOrder")  return r==="operador";          // o utilizador regista
+    if(action==="createOrder")  return r==="operador" || r==="responsavel"; // utilizador e responsável registam
     if(action==="manageOrder")  return r==="responsavel";       // atribui técnico, prioridade, taxa, conserto
     if(action==="manageUsers")  return false;
     return false;
