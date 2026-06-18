@@ -9,6 +9,6 @@
 // e políticas de acesso (RLS) adequadas.
 
 window.TECNOASSIST_CONFIG = {
-  SUPABASE_URL: "",       // ex.: https://abcdefgh.supabase.co
-  SUPABASE_ANON_KEY: ""   // a chave "anon public" do projeto
+  SUPABASE_URL: "https://deyuhpxwyinzmobgfpdg.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRleXVocHh3eWluem1vYmdmcGRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NzIyODMsImV4cCI6MjA5NzM0ODI4M30.fGLZOZKl-Gk-IlDXLcmeQeTCcFgpRSGP8-lLJMS3JQQ"
 };
