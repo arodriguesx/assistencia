@@ -6,6 +6,7 @@
   --blue:#2563eb; --blue-soft:#e8f0fe;
   --amber:#d97706; --amber-soft:#fdf1dd;
   --slate:#475569; --slate-soft:#eef1f5;
+  --purple:#7c3aed; --purple-soft:#efe9fd;
   --radius:18px; --radius-sm:12px;
   --shadow:0 1px 2px rgba(20,20,20,.04);
   --font:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
@@ -18,6 +19,7 @@ body.dark{
   --blue:#5b9bff; --blue-soft:#172238;
   --amber:#f0a93b; --amber-soft:#33260f;
   --slate:#aab4c0; --slate-soft:#262b33;
+  --purple:#b794f6; --purple-soft:#2a2342;
   --shadow:0 1px 2px rgba(0,0,0,.4);
 }
 body{transition:background .2s,color .2s}
@@ -231,13 +233,16 @@ tbody tr:hover{background:var(--surface-2)}
 .os-id{font-weight:600}
 
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
-.b-registada{background:var(--orange-soft);color:var(--orange)}
+.b-registado{background:var(--orange-soft);color:var(--orange)}
 .b-diagnostico{background:var(--amber-soft);color:var(--amber)}
-.b-reparacao{background:var(--blue-soft);color:var(--blue)}
-.b-concluida{background:var(--slate-soft);color:var(--slate)}
+.b-orcamento{background:var(--blue-soft);color:var(--blue)}
+.b-manutencao{background:var(--purple-soft);color:var(--purple)}
+.b-finalizado{background:var(--slate-soft);color:var(--slate)}
 .b-entregue{background:var(--green-soft);color:var(--green)}
+.b-cancelada{background:#fde4e4;color:#dc2626}
+.b-reparacao{background:var(--blue-soft);color:var(--blue)}
 .b-urgente{background:#fde4e4;color:#dc2626;margin-left:6px}
-body.dark .b-urgente{background:#3a1c1c;color:#f08a8a}
+body.dark .b-urgente,body.dark .b-cancelada{background:#3a1c1c;color:#f08a8a}
 
 /* ---------- Modal ---------- */
 .modal-bg{position:fixed;inset:0;background:rgba(20,20,20,.45);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:50;overflow:auto}

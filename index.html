@@ -176,11 +176,13 @@
         <select id="filter-mes" onchange="App.renderTable()"></select>
         <select id="filter-estado" onchange="App.renderTable()">
           <option value="">Todos os estados</option>
-          <option value="registada">Registada</option>
+          <option value="registado">Registado</option>
           <option value="diagnostico">Diagnóstico</option>
-          <option value="reparacao">Em reparação</option>
-          <option value="concluida">Concluída</option>
+          <option value="orcamento">Orçamento</option>
+          <option value="manutencao">Manutenção</option>
+          <option value="finalizado">Finalizado</option>
           <option value="entregue">Entregue</option>
+          <option value="cancelada">Cancelada</option>
         </select>
         <select id="filter-loja" onchange="App.renderTable()"></select>
         <button class="btn ghost" onclick="App.exportMonth()" title="Exportar o mês selecionado para Excel/CSV">&#11015; Exportar mês</button>

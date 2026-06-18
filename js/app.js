@@ -2,24 +2,29 @@ const App = (() => {
   const KEY = "tecnoassist_db_v4";
   const SKEY = "tecnoassist_sess";   // sessão atual (utilizador) — sobrevive a refresh
   const PKEY = "tecnoassist_page";   // última página aberta
-  const ESTADOS = ["registada","diagnostico","reparacao","concluida","entregue"];
-  const ESTADO_LABEL = {registada:"Registada", diagnostico:"Diagnóstico", reparacao:"Em reparação", concluida:"Concluída", entregue:"Entregue"};
+  // fluxo linear (cancelada é uma saída, não entra na sequência)
+  const ESTADOS = ["registado","diagnostico","orcamento","manutencao","finalizado","entregue"];
+  const ESTADO_LABEL = {
+    registado:"Registado", diagnostico:"Diagnóstico", orcamento:"Orçamento",
+    manutencao:"Manutenção", finalizado:"Finalizado", entregue:"Entregue", cancelada:"Cancelada"
+  };
+  const ESTADO_HINT = {
+    registado:"cliente deixou o equipamento", diagnostico:"técnico avalia o problema",
+    orcamento:"aguarda aprovação do cliente", manutencao:"reparo ou troca de peças",
+    finalizado:"disponível para retirada", entregue:"cliente recebeu o equipamento", cancelada:"serviço não realizado"
+  };
   const ROLE_LABEL = {operador:"Utilizador", responsavel:"Responsável técnico", admin:"Administrador"};
   const TAXA_PRIORIDADE = {normal:1000, urgente:2000}; // sugestão de taxa de diagnóstico (CVE)
-  const FLOW = [
-    {key:"registada",   label:"Registo (utilizador)"},
-    {key:"diagnostico", label:"Responsável técnico"},
-    {key:"reparacao",   label:"Reparação"},
-    {key:"concluida",   label:"Concluída"},
-    {key:"entregue",    label:"Entregue ao cliente"},
-  ];
+  const FLOW = ESTADOS.map(k=>({key:k, label:ESTADO_LABEL[k]}));
   // quem pode avançar PARA FORA de cada estado -> próximo estado
   const ADVANCE_PERM = {
-    registada:   ["responsavel","admin"],          // responsável dá seguimento
+    registado:   ["responsavel","admin"],            // responsável dá seguimento
     diagnostico: ["responsavel","admin"],
-    reparacao:   ["responsavel","admin"],
-    concluida:   ["operador","responsavel","admin"], // utilizador entrega ao cliente
+    orcamento:   ["operador","responsavel","admin"], // aprovação do cliente
+    manutencao:  ["responsavel","admin"],
+    finalizado:  ["operador","responsavel","admin"], // entrega ao cliente
   };
+  const isOpen = o => o.estado!=="entregue" && o.estado!=="cancelada"; // assistência em curso
 
   // contas iniciais (geridas pelo administrador na página Contas)
   const DEFAULT_USERS = [
@@ -288,7 +293,7 @@ const App = (() => {
   const MES_ABBR=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
   const monthLabel = ym => { const [y,m]=ym.split("-"); return MES_ABBR[(+m)-1]+" "+y; };
   const shortStore = n => n.replace(/,?\s*Lda\.?$/i,"").trim();
-  const STAGE_COLOR = {registada:"var(--orange)",diagnostico:"var(--amber)",reparacao:"var(--blue)",concluida:"var(--slate)",entregue:"var(--green)"};
+  const STAGE_COLOR = {registado:"var(--orange)",diagnostico:"var(--amber)",orcamento:"var(--blue)",manutencao:"var(--purple)",finalizado:"var(--slate)",entregue:"var(--green)",cancelada:"#dc2626"};
   const SVG = s => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${s}</svg>`;
   const KPI_ICON = {
     abertas:   SVG('<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/>'),
@@ -300,7 +305,7 @@ const App = (() => {
   function renderDashboard(){
     const list = scoped();
     const count = e => list.filter(o=>o.estado===e).length;
-    const abertas = list.filter(o=>o.estado!=="entregue").length;
+    const abertas = list.filter(isOpen).length;
     const entregues = list.filter(o=>o.estado==="entregue");
     const fatur = entregues.reduce((s,o)=>s+(Number(o.preco)||0),0);
 
@@ -314,7 +319,7 @@ const App = (() => {
     $("#hero-lojas-label").textContent = seesAllStores() ? `Lojas · ${lojas.length}` : "A sua loja";
     $("#hero-stores").innerHTML = lojas.map(l=>{
       const n = db.ordens.filter(o=>o.loja===l.id).length;
-      const ab = db.ordens.filter(o=>o.loja===l.id && o.estado!=="entregue").length;
+      const ab = db.ordens.filter(o=>o.loja===l.id && isOpen(o)).length;
       return `<div class="hw-card">
         <div class="hw-name">${esc(shortStore(l.nome))}</div>
         <div class="hw-num">${n} assist.</div>
@@ -325,18 +330,19 @@ const App = (() => {
     // --- 2x2 metrics ---
     $("#kpis").innerHTML = `
       ${kpi("Assistências abertas", abertas, "em curso", true, KPI_ICON.abertas)}
-      ${kpi("Em reparação", count("reparacao"), "com técnicos", false, KPI_ICON.reparacao)}
+      ${kpi("Em manutenção", count("manutencao"), "reparo/peças", false, KPI_ICON.reparacao)}
+      ${kpi("Aguardam retirada", count("finalizado"), "prontas", false, KPI_ICON.aguardar)}
       ${kpi("Entregues", count("entregue"), "no histórico", false, KPI_ICON.entregues)}
-      ${kpi("A aguardar entrega", count("concluida"), "prontas", false, KPI_ICON.aguardar)}
     `;
 
     // --- month bars (entregues vs em curso) ---
     renderMonthBars(list);
 
     // --- pipeline as flow list ---
-    const maxStage = Math.max(1, ...ESTADOS.map(count));
-    $("#pipeline").innerHTML = ESTADOS.map(e=>`
-      <div class="flow-row">
+    const stages = [...ESTADOS, "cancelada"];
+    const maxStage = Math.max(1, ...stages.map(count));
+    $("#pipeline").innerHTML = stages.map(e=>`
+      <div class="flow-row" title="${ESTADO_HINT[e]||""}">
         <span class="fl-name">${ESTADO_LABEL[e]}</span>
         <span class="fl-bar"><i style="width:${Math.round(count(e)/maxStage*100)}%;background:${STAGE_COLOR[e]}"></i></span>
         <span class="fl-count">${count(e)}</span>
@@ -365,7 +371,7 @@ const App = (() => {
     for(let i=5;i>=0;i--){ const d=new Date(now.getFullYear(), now.getMonth()-i, 1); months.push(d.toISOString().slice(0,7)); }
     const data = months.map(ym=>{
       const inM = list.filter(o=>monthOf(o)===ym);
-      return { ym, ent: inM.filter(o=>o.estado==="entregue").length, ab: inM.filter(o=>o.estado!=="entregue").length };
+      return { ym, ent: inM.filter(o=>o.estado==="entregue").length, ab: inM.filter(isOpen).length };
     });
     const max = Math.max(1, ...data.map(d=>Math.max(d.ent,d.ab)));
     $("#month-bars").innerHTML = data.map(d=>`
@@ -490,7 +496,7 @@ const App = (() => {
       entrada: new Date().toISOString().slice(0,10),
       taxa: 0, prioridade:"normal", agenda:null,
       preco: 0, conserto:null, saida:null, tecnico:null,
-      estado:"registada"
+      estado:"registado"
     };
     // catálogos crescem com o uso
     pushUnique(db.clientes, cliente);
@@ -505,17 +511,22 @@ const App = (() => {
     const o = db.ordens.find(x=>x.id===id); if(!o) return;
     currentDetailId = id;
     const idx = ESTADOS.indexOf(o.estado);
-    const flow = FLOW.map((s,i)=>`<div class="flow-step ${i<idx?'done':i===idx?'current':''}">${s.label}</div>`).join('<span style="color:#bbb">&rsaquo;</span>');
-    const mayAdvance = o.estado!=="entregue" && (ADVANCE_PERM[o.estado]||[]).includes(session.role);
-    const nextLabel = o.estado!=="entregue" ? FLOW[idx+1].label : null;
+    const cancelada = o.estado==="cancelada";
+    const terminal = o.estado==="entregue" || cancelada;
+    const flow = cancelada
+      ? `<div class="flow-step current" style="flex:1;background:#fde4e4;color:#dc2626">Serviço cancelado</div>`
+      : FLOW.map((s,i)=>`<div class="flow-step ${i<idx?'done':i===idx?'current':''}">${s.label}</div>`).join('<span style="color:#bbb">&rsaquo;</span>');
+    const mayAdvance = !terminal && (ADVANCE_PERM[o.estado]||[]).includes(session.role);
+    const nextLabel = (!terminal && idx<ESTADOS.length-1) ? FLOW[idx+1].label : null;
     const canManage = can("manageOrder");   // responsável (admin pode tudo)
+    const canCancel = !terminal;             // qualquer perfil pode cancelar um serviço em curso
     const prio = o.prioridade||"normal";
 
     $("#modal-root").innerHTML = `
     <div class="modal-bg" onclick="if(event.target===this)App.closeModal()">
       <div class="modal">
         <button class="modal-close" onclick="App.closeModal()">&times;</button>
-        <h3>${o.id} &nbsp; ${badge(o.estado)} ${prio==="urgente"?'<span class="badge b-urgente">Urgente</span>':''}</h3>
+        <h3>${o.id} &nbsp; ${badge(o.estado)} ${prio==="urgente"&&!terminal?'<span class="badge b-urgente">Urgente</span>':''}</h3>
         <p class="sub">${esc(o.cliente)} · ${esc(lojaNome(o.loja))}</p>
         <div class="flow-track">${flow}</div>
         ${detRow("Morada", o.morada||"—")}
@@ -545,11 +556,14 @@ const App = (() => {
             <div class="full"><label>Descrição da avaria</label><textarea id="d-avaria">${esc(o.avaria||"")}</textarea></div>
             <div class="full"><label>Descrição do conserto</label><textarea id="d-conserto">${esc(o.conserto||"")}</textarea></div>
             <div><label>Preço final (CVE)</label><input id="d-preco" type="number" min="0" value="${Number(o.preco)||0}"></div>
-          </div>` : `<p class="sub" style="margin:0 0 4px">${o.estado==="concluida"?"Pronta para entrega ao cliente.":"A gestão técnica é feita pelo responsável técnico."}</p>`}
+          </div>` : `<p class="sub" style="margin:0 0 4px">${o.estado==="finalizado"?"Disponível para retirada pelo cliente.":"A gestão técnica é feita pelo responsável técnico."}</p>`}
           <div class="modal-actions">
-            ${canManage?`<button class="btn ghost" onclick="App.saveDetail('${o.id}')">Guardar alterações</button>`:""}
+            ${canCancel?`<button class="btn danger" style="margin-right:auto" onclick="App.cancelOrder('${o.id}')">Cancelar serviço</button>`:""}
+            ${canManage&&!terminal?`<button class="btn ghost" onclick="App.saveDetail('${o.id}')">Guardar alterações</button>`:""}
             ${o.estado==="entregue"
               ? `<span style="color:var(--green);font-weight:600;align-self:center">&#10003; Entregue ao cliente</span>`
+              : cancelada
+                ? `<span style="color:#dc2626;font-weight:600;align-self:center">&#10005; Serviço cancelado</span>`
               : mayAdvance
                 ? `<button class="btn primary" onclick="App.advance('${o.id}')">Avançar &rarr; ${nextLabel}</button>`
                 : `<span style="color:var(--muted);align-self:center;font-size:13px">Aguarda ação de: ${(ADVANCE_PERM[o.estado]||[]).map(r=>ROLE_LABEL[r]).filter(x=>x!=="Administrador").join(" / ")}</span>`}
@@ -584,6 +598,14 @@ const App = (() => {
     if(o.estado==="entregue" && !o.saida) o.saida = new Date().toISOString().slice(0,10);
     save(); openDetail(id); renderTable(); updateNotif();
   }
+  function cancelOrder(id){
+    const o = db.ordens.find(x=>x.id===id); if(!o) return;
+    if(o.estado==="entregue" || o.estado==="cancelada") return;
+    if(!confirm(`Cancelar a assistência ${o.id} (${o.cliente})?\nO serviço será marcado como não realizado.`)) return;
+    pullEdits(o);
+    o.estado = "cancelada"; o.saida = new Date().toISOString().slice(0,10);
+    save(); openDetail(id); renderTable(); updateNotif();
+  }
 
   // ---------- clientes ----------
   function renderClientes(){
@@ -592,7 +614,7 @@ const App = (() => {
     scoped().forEach(o=>{
       const k=o.cliente; if(!k) return;
       if(!map[k]) map[k]={nome:k,total:0,abertas:0,locs:new Set(),last:""};
-      map[k].total++; if(o.estado!=="entregue") map[k].abertas++;
+      map[k].total++; if(isOpen(o)) map[k].abertas++;
       if(o.localizacao) map[k].locs.add(o.localizacao);
       if(o.entrada && o.entrada>map[k].last) map[k].last=o.entrada;
     });
@@ -652,7 +674,7 @@ const App = (() => {
       const k=o.tecnico; if(!k) return;
       if(!map[k]) map[k]={nome:k,total:0,abertas:0,entregues:0,fatur:0};
       map[k].total++;
-      if(o.estado==="entregue"){ map[k].entregues++; map[k].fatur+=Number(o.preco)||0; } else map[k].abertas++;
+      if(o.estado==="entregue"){ map[k].entregues++; map[k].fatur+=Number(o.preco)||0; } else if(isOpen(o)) map[k].abertas++;
     });
     if(canManageTecnicos()) (db.tecnicos||[]).forEach(t=>{ if(!map[t]) map[t]={nome:t,total:0,abertas:0,entregues:0,fatur:0}; });
     let rows = Object.values(map);
@@ -725,8 +747,8 @@ const App = (() => {
     const todayISO = isoD(new Date());
     $("#agenda-range").textContent = `${fmt(days[0])} – ${fmt(days[6])} de ${days[6].getFullYear()}`;
 
-    const sched = scoped().filter(o=>o.tecnico && o.agenda && o.estado!=="entregue");
-    const techs = [...new Set(scoped().filter(o=>o.tecnico && o.estado!=="entregue").map(o=>o.tecnico))].sort((a,b)=>a.localeCompare(b));
+    const sched = scoped().filter(o=>o.tecnico && o.agenda && isOpen(o));
+    const techs = [...new Set(scoped().filter(o=>o.tecnico && isOpen(o)).map(o=>o.tecnico))].sort((a,b)=>a.localeCompare(b));
     if(!techs.length){
       $("#agenda-grid").innerHTML = `<div class="empty">Sem técnicos com assistências ativas nesta semana.</div>`;
     } else {
@@ -765,7 +787,7 @@ const App = (() => {
     });
     $("#agenda-mobile").innerHTML = ml;
 
-    const todo = scoped().filter(o=>o.tecnico && !o.agenda && o.estado!=="entregue");
+    const todo = scoped().filter(o=>o.tecnico && !o.agenda && isOpen(o));
     $("#agenda-todo").innerHTML = todo.length ? todo.map(o=>`
       <div class="mini-row" style="cursor:pointer" onclick="App.openDetail('${o.id}')">
         <span>${o.id} · ${esc(o.cliente)} <span style="color:var(--muted)">(${esc(o.tecnico)})</span></span>
@@ -887,7 +909,7 @@ const App = (() => {
   restoreSession();
   cloudStart();
 
-  return {login, logout, go, renderTable, openNew, createOrder, openDetail, saveDetail, advance,
+  return {login, logout, go, renderTable, openNew, createOrder, openDetail, saveDetail, advance, cancelOrder,
           closeModal, resetData, factoryReset, exportMonth, openUser, saveUser, delUser, _toggleLoja, toggleAccount, toggleTheme, setTheme,
           renderClientes, openClient, saveClient, delClient, clienteOrders,
           renderTecnicos, openTecnico, saveTecnico, delTecnico, tecnicoOrders,
