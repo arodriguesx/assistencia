@@ -519,7 +519,7 @@ const App = (() => {
     const mayAdvance = !terminal && (ADVANCE_PERM[o.estado]||[]).includes(session.role);
     const nextLabel = (!terminal && idx<ESTADOS.length-1) ? FLOW[idx+1].label : null;
     const canManage = can("manageOrder");   // responsável (admin pode tudo)
-    const canCancel = !terminal;             // qualquer perfil pode cancelar um serviço em curso
+    const canCancel = !terminal && canManage; // só responsável/admin podem cancelar
     const prio = o.prioridade||"normal";
 
     $("#modal-root").innerHTML = `
@@ -599,6 +599,7 @@ const App = (() => {
     save(); openDetail(id); renderTable(); updateNotif();
   }
   function cancelOrder(id){
+    if(!can("manageOrder")){ alert("Só o responsável técnico ou o administrador podem cancelar."); return; }
     const o = db.ordens.find(x=>x.id===id); if(!o) return;
     if(o.estado==="entregue" || o.estado==="cancelada") return;
     if(!confirm(`Cancelar a assistência ${o.id} (${o.cliente})?\nO serviço será marcado como não realizado.`)) return;
