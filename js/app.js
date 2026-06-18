@@ -230,13 +230,14 @@ const App = (() => {
     const h = new Date().getHours();
     $("#greeting").textContent = (h<12?"Bom dia":h<19?"Boa tarde":"Boa noite") + ", " + session.nome;
 
-    // hide "nova ordem" if this role can't create
-    document.querySelectorAll(".new-os-btn").forEach(b=>b.style.display = can("createOrder")?"":"none");
-    document.querySelectorAll(".cli-add").forEach(b=>b.style.display = canManageClients()?"":"none");
-    document.querySelectorAll(".tec-add").forEach(b=>b.style.display = canManageTecnicos()?"":"none");
-    document.querySelectorAll(".tec-nav").forEach(b=>b.style.display = canManageTecnicos()?"":"none");
-    document.querySelectorAll(".acc-menu .admin-only").forEach(b=>b.style.display = session.role==="admin"?"":"none");
-    document.querySelectorAll(".agenda-nav").forEach(b=>b.style.display = canManageTecnicos()?"":"none");
+    // visibilidade por perfil (via .hidden p/ não colidir com a responsividade CSS)
+    const tog=(sel,show)=>document.querySelectorAll(sel).forEach(e=>e.classList.toggle("hidden", !show));
+    tog(".new-os-btn", can("createOrder"));
+    tog(".cli-add", canManageClients());
+    tog(".tec-add", canManageTecnicos());
+    tog(".tec-nav", canManageTecnicos());
+    tog(".agenda-nav", canManageTecnicos());
+    tog(".admin-only", session.role==="admin");
     agendaWeek = null;
     updateNotif();
 
@@ -268,7 +269,7 @@ const App = (() => {
     if(page==="utilizadores" && session.role!=="admin") page="dashboard";
     if(page==="agenda" && !canManageTecnicos()) page="dashboard";
     localStorage.setItem(PKEY, page);
-    document.querySelectorAll(".nav button, .rail-nav .rail-btn").forEach(b=>b.classList.toggle("active", b.dataset.page===page));
+    document.querySelectorAll(".nav button, .tabbar button, .rail-nav .rail-btn").forEach(b=>b.classList.toggle("active", b.dataset.page===page));
     document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
     $("#page-"+page).classList.add("active");
     if(page==="dashboard") renderDashboard();
@@ -349,12 +350,12 @@ const App = (() => {
     const recent = [...list].reverse().slice(0,6);
     $("#recent-body").innerHTML = recent.map(o=>`
       <tr onclick="App.openDetail('${o.id}')">
-        <td class="os-id">${o.id}</td>
-        <td>${esc(o.cliente)}</td>
-        <td>${esc(devLabel(o))||"—"}</td>
-        <td>${badge(o.estado)}</td>
-        <td>${esc(o.tecnico||"—")}</td>
-        <td style="text-align:right">${money(o.preco)}</td>
+        <td class="os-id" data-label="Nº">${o.id}</td>
+        <td data-label="Cliente">${esc(o.cliente)}</td>
+        <td data-label="Equipamento">${esc(devLabel(o))||"—"}</td>
+        <td data-label="Estado">${badge(o.estado)}</td>
+        <td data-label="Técnico">${esc(o.tecnico||"—")}</td>
+        <td style="text-align:right" data-label="Preço">${money(o.preco)}</td>
       </tr>`).join("") || `<tr><td colspan="6" class="empty">Sem assistências.</td></tr>`;
   }
 
@@ -402,14 +403,14 @@ const App = (() => {
     $("#orders-empty").classList.toggle("hidden", list.length>0);
     $("#orders-body").innerHTML = list.map(o=>`
       <tr onclick="App.openDetail('${o.id}')">
-        <td class="os-id" style="padding-left:20px">${o.id}</td>
-        <td>${esc(o.cliente)}</td>
-        <td>${esc(devLabel(o))||"—"}</td>
-        <td>${badge(o.estado)}</td>
-        <td>${esc(o.tecnico||"—")}</td>
-        <td>${esc(lojaNome(o.loja))}</td>
-        <td>${esc(o.entrada||"—")}</td>
-        <td style="padding-right:20px">${money(o.preco)}</td>
+        <td class="os-id" style="padding-left:20px" data-label="Nº">${o.id}</td>
+        <td data-label="Cliente">${esc(o.cliente)}</td>
+        <td data-label="Equipamento">${esc(devLabel(o))||"—"}</td>
+        <td data-label="Estado">${badge(o.estado)}</td>
+        <td data-label="Técnico">${esc(o.tecnico||"—")}</td>
+        <td data-label="Loja">${esc(lojaNome(o.loja))}</td>
+        <td data-label="Entrada">${esc(o.entrada||"—")}</td>
+        <td style="padding-right:20px" data-label="Preço">${money(o.preco)}</td>
       </tr>`).join("");
   }
 
@@ -603,12 +604,12 @@ const App = (() => {
     const canDel = canManageClients();
     $("#clients-body").innerHTML = rows.map(r=>`
       <tr onclick="App.clienteOrders('${jsStr(r.nome)}')">
-        <td style="padding-left:20px;font-weight:500">${esc(r.nome)}</td>
-        <td>${r.total}</td>
-        <td>${r.abertas? `<span class="badge b-reparacao">${r.abertas}</span>`:"—"}</td>
-        <td>${[...r.locs].slice(0,2).map(esc).join(", ")||"—"}</td>
-        <td>${esc(r.last||"—")}</td>
-        <td style="padding-right:20px;text-align:right" onclick="event.stopPropagation()">
+        <td style="padding-left:20px;font-weight:500" data-label="Cliente">${esc(r.nome)}</td>
+        <td data-label="Assistências">${r.total}</td>
+        <td data-label="Em curso">${r.abertas? `<span class="badge b-reparacao">${r.abertas}</span>`:"—"}</td>
+        <td data-label="Localização">${[...r.locs].slice(0,2).map(esc).join(", ")||"—"}</td>
+        <td data-label="Última entrada">${esc(r.last||"—")}</td>
+        <td style="padding-right:20px;text-align:right" data-label="" onclick="event.stopPropagation()">
           ${(canDel && r.total===0)?`<button class="link-btn danger" onclick="App.delClient('${jsStr(r.nome)}')">Remover</button>`:""}
         </td>
       </tr>`).join("");
@@ -661,12 +662,12 @@ const App = (() => {
     const canMng = canManageTecnicos();
     $("#tecs-body").innerHTML = rows.map(r=>`
       <tr onclick="App.tecnicoOrders('${jsStr(r.nome)}')">
-        <td style="padding-left:20px;font-weight:500">${esc(r.nome)}</td>
-        <td>${r.total}</td>
-        <td>${r.abertas||"—"}</td>
-        <td>${r.entregues||"—"}</td>
-        <td>${money(r.fatur)}</td>
-        <td style="padding-right:20px;text-align:right;white-space:nowrap" onclick="event.stopPropagation()">
+        <td style="padding-left:20px;font-weight:500" data-label="Técnico">${esc(r.nome)}</td>
+        <td data-label="Atribuídas">${r.total}</td>
+        <td data-label="Em curso">${r.abertas||"—"}</td>
+        <td data-label="Entregues">${r.entregues||"—"}</td>
+        <td data-label="Faturação">${money(r.fatur)}</td>
+        <td style="padding-right:20px;text-align:right;white-space:nowrap" data-label="" onclick="event.stopPropagation()">
           ${canMng?`<button class="link-btn" onclick="App.openTecnico('${jsStr(r.nome)}')">Editar</button>`:""}
           ${(canMng && r.total===0)?`<button class="link-btn danger" onclick="App.delTecnico('${jsStr(r.nome)}')">Remover</button>`:""}
         </td>
@@ -802,11 +803,11 @@ const App = (() => {
   function renderUsers(){
     $("#users-body").innerHTML = db.utilizadores.map((u,i)=>`
       <tr>
-        <td style="padding-left:20px">${esc(u.nome)}</td>
-        <td><code>${esc(u.user)}</code></td>
-        <td>${ROLE_LABEL[u.role]}</td>
-        <td>${(u.role==="admin"||u.role==="responsavel")?"Todas":esc(lojaNome(u.loja))}</td>
-        <td style="padding-right:20px;text-align:right">
+        <td style="padding-left:20px" data-label="Nome">${esc(u.nome)}</td>
+        <td data-label="Utilizador"><code>${esc(u.user)}</code></td>
+        <td data-label="Perfil">${ROLE_LABEL[u.role]}</td>
+        <td data-label="Loja">${(u.role==="admin"||u.role==="responsavel")?"Todas":esc(lojaNome(u.loja))}</td>
+        <td style="padding-right:20px;text-align:right" data-label="">
           <button class="link-btn" onclick="App.openUser(${i})">Editar</button>
           ${u.user==="admin"?"":`<button class="link-btn danger" onclick="App.delUser(${i})">Remover</button>`}
         </td>

@@ -29,7 +29,7 @@ a{color:inherit;text-decoration:none}
 
 /* ---------- Login ---------- */
 .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.login-card{background:var(--surface);border-radius:24px;padding:34px;width:380px;box-shadow:var(--shadow);border:1px solid var(--line)}
+.login-card{background:var(--surface);border-radius:24px;padding:34px;width:100%;max-width:380px;box-shadow:var(--shadow);border:1px solid var(--line)}
 .login-card .logo{margin-bottom:18px}
 .login-card h1{font-size:22px;margin-bottom:4px}
 .login-card p.sub{color:var(--muted);margin-bottom:22px}
@@ -40,9 +40,7 @@ a{color:inherit;text-decoration:none}
 .login-error{color:#dc2626;font-size:13px;margin:-4px 0 12px}
 .login-card code{background:var(--surface-2);padding:1px 6px;border-radius:6px;font-size:12px}
 
-/* visibility helpers driven by role */
-.admin-only{display:none}
-body.role-admin .admin-only{display:inline-flex}
+/* visibilidade por perfil é controlada via classe .hidden no JS (boot) */
 .link-btn{border:none;background:transparent;color:var(--orange);font-weight:600;font-size:13px;padding:4px 8px;border-radius:8px}
 .link-btn.danger{color:#dc2626}
 .link-btn:hover{background:var(--surface-2)}
@@ -264,3 +262,61 @@ body.dark .b-urgente{background:#3a1c1c;color:#f08a8a}
 .flow-step.done{background:var(--orange-soft);color:var(--orange);font-weight:600}
 .flow-step.current{background:var(--orange);color:#fff;font-weight:600}
 .empty{text-align:center;color:var(--muted);padding:40px}
+
+/* ============ Responsividade ============ */
+/* Tab bar inferior — só telemóvel */
+.tabbar{display:none}
+
+/* Tablet: a navegação do topo desliza se faltar espaço (já tratado) */
+@media(max-width:900px){
+  .dash-grid-2{grid-template-columns:1fr}
+}
+
+/* Telemóvel (<=640px): tab bar inferior, topo compacto, tabelas em cartões */
+@media(max-width:640px){
+  .nav{display:none}
+  .hide-mobile{display:none !important}
+  main{padding:16px 14px calc(74px + env(safe-area-inset-bottom,0px)) !important}
+  .page-head{margin-bottom:14px}
+  .page-head h2{font-size:20px}
+  .topbar-inner{gap:8px;padding:10px 14px}
+
+  /* tab bar */
+  .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:35;background:var(--surface);border-top:1px solid var(--line);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));justify-content:space-around;box-shadow:0 -2px 10px rgba(20,20,20,.07)}
+  .tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;color:var(--muted);font-size:11px;font-weight:500;padding:6px 2px;border-radius:12px;min-height:48px}
+  .tabbar button.active{color:var(--orange)}
+  .tabbar button:active{background:var(--surface-2)}
+
+  /* métricas: 2 colunas continuam ok; cartões com menos padding */
+  .kpi{padding:14px}
+  .hero-value{font-size:26px}
+
+  /* tabelas -> cartões empilhados */
+  table.responsive thead{display:none}
+  table.responsive tbody tr{display:block;border:1px solid var(--line);border-radius:12px;margin:0 12px 10px;padding:6px 12px;background:var(--surface)}
+  table.responsive tbody tr:hover{background:var(--surface)}
+  table.responsive td{display:flex;justify-content:space-between;align-items:center;gap:14px;border:none;padding:7px 0;text-align:right}
+  table.responsive td + td{border-top:1px solid var(--line)}
+  table.responsive td[data-label]::before{content:attr(data-label);color:var(--muted);font-weight:500;text-align:left;flex:0 0 auto}
+  table.responsive td[data-label=""]{justify-content:flex-end;padding-top:8px}
+  table.responsive td[data-label=""]::before{content:none}
+  table.responsive td.os-id{font-weight:600}
+
+  /* modal vira "bottom sheet" */
+  .modal-bg{align-items:flex-end;padding:0}
+  .modal{max-width:none;border-radius:18px 18px 0 0;max-height:92vh;overflow-y:auto;padding:20px 18px calc(22px + env(safe-area-inset-bottom,0px))}
+  .form-grid{grid-template-columns:1fr}
+  .modal-actions{flex-wrap:wrap}
+  .modal-actions .btn{flex:1}
+
+  /* toolbar: pesquisa ocupa a largura toda */
+  .toolbar input[type=search]{min-width:0;flex:1 1 100%}
+  .toolbar .spacer{margin-left:0}
+  .detail-row .d-val{max-width:62%}
+}
+
+/* Ecrãs muito pequenos: métricas numa coluna */
+@media(max-width:380px){
+  .metrics-2x2{grid-template-columns:1fr}
+}

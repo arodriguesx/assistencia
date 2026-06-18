@@ -45,7 +45,7 @@
           <svg class="ic-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="ic-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="7" y2="7"/><line x1="17" y1="17" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="7" y2="17"/><line x1="17" y1="7" x2="19.1" y2="4.9"/></svg>
         </button>
-        <button class="icon-btn" title="Procurar" onclick="App.go('ordens');setTimeout(()=>document.getElementById('search').focus(),50)" aria-label="Procurar">
+        <button class="icon-btn hide-mobile" title="Procurar" onclick="App.go('ordens');setTimeout(()=>document.getElementById('search').focus(),50)" aria-label="Procurar">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
         <div class="notif-wrap" id="notif-wrap">
@@ -58,7 +58,7 @@
             <div id="notif-list"></div>
           </div>
         </div>
-        <button class="icon-btn" title="Informação" aria-label="Informação">
+        <button class="icon-btn hide-mobile" title="Informação" aria-label="Informação">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.6" fill="currentColor"/></svg>
         </button>
       </div>
@@ -157,7 +157,7 @@
 
         <div class="panel recent-card">
           <h3>Assistências recentes <span class="muted">últimas registadas</span></h3>
-          <table>
+          <table class="responsive">
             <thead><tr><th>Nº</th><th>Cliente</th><th>Equipamento</th><th>Estado</th><th>Técnico</th><th style="text-align:right">Preço</th></tr></thead>
             <tbody id="recent-body"></tbody>
           </table>
@@ -187,7 +187,7 @@
         <button class="btn primary new-os-btn" onclick="App.openNew()">+ Nova assistência</button>
       </div>
       <div class="panel" style="padding:8px 0">
-        <table>
+        <table class="responsive">
           <thead><tr>
             <th style="padding-left:20px">Nº</th><th>Cliente</th><th>Equipamento</th>
             <th>Estado</th><th>Técnico</th><th>Loja</th><th>Entrada</th><th style="padding-right:20px">Preço</th>
@@ -209,7 +209,7 @@
         <button class="btn primary spacer cli-add" onclick="App.openClient()">+ Novo cliente</button>
       </div>
       <div class="panel" style="padding:8px 0">
-        <table>
+        <table class="responsive">
           <thead><tr>
             <th style="padding-left:20px">Cliente</th><th>Assistências</th><th>Em curso</th><th>Localização</th><th>Última entrada</th><th style="padding-right:20px"></th>
           </tr></thead>
@@ -230,7 +230,7 @@
         <button class="btn primary spacer tec-add" onclick="App.openTecnico()">+ Novo técnico</button>
       </div>
       <div class="panel" style="padding:8px 0">
-        <table>
+        <table class="responsive">
           <thead><tr>
             <th style="padding-left:20px">Técnico</th><th>Atribuídas</th><th>Em curso</th><th>Entregues</th><th>Faturação</th><th style="padding-right:20px"></th>
           </tr></thead>
@@ -273,7 +273,7 @@
         <button class="btn primary" onclick="App.openUser()">+ Novo utilizador</button>
       </div>
       <div class="panel" style="padding:8px 0">
-        <table>
+        <table class="responsive">
           <thead><tr>
             <th style="padding-left:20px">Nome</th><th>Utilizador</th><th>Perfil</th><th>Loja</th><th style="padding-right:20px"></th>
           </tr></thead>
@@ -283,6 +283,26 @@
     </section>
   </main>
   </div>
+
+  <!-- Navegação inferior (telemóvel) -->
+  <nav class="tabbar">
+    <button data-page="dashboard" class="active" onclick="App.go('dashboard')" aria-label="Dashboard">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span>Início</span>
+    </button>
+    <button data-page="ordens" onclick="App.go('ordens')" aria-label="Assistências">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.5h6V4"/><line x1="8.5" y1="9" x2="15.5" y2="9"/><line x1="8.5" y1="13" x2="15.5" y2="13"/><line x1="8.5" y1="17" x2="12.5" y2="17"/></svg>
+      <span>Assist.</span>
+    </button>
+    <button data-page="clientes" onclick="App.go('clientes')" aria-label="Clientes">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3 3 0 0 1 0 5.8"/><path d="M17.5 14.5a5 5 0 0 1 3 5"/></svg>
+      <span>Clientes</span>
+    </button>
+    <button data-page="agenda" class="agenda-nav" onclick="App.go('agenda')" aria-label="Agenda">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+      <span>Agenda</span>
+    </button>
+  </nav>
 </div>
 
 <div id="modal-root"></div>
