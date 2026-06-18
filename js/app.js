@@ -744,6 +744,27 @@ const App = (() => {
       $("#agenda-grid").innerHTML = h;
     }
 
+    // --- vista de lista (telemóvel): agrupada por dia ---
+    const dfull=["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"];
+    let ml = "";
+    days.forEach((d,i)=>{
+      const di=isoD(d);
+      const items = sched.filter(o=>o.agenda===di).sort((a,b)=>a.tecnico.localeCompare(b.tecnico));
+      const hoje = di===todayISO;
+      ml += `<div class="agm-day ${hoje?"today":""}">
+        <div class="agm-dayhead">${dfull[i]}, ${fmt(d)}${hoje?' · <span style="color:var(--orange)">hoje</span>':""} <span class="muted">${items.length||""}</span></div>
+        ${items.length ? items.map(o=>`
+          <div class="agm-item" onclick="App.openDetail('${o.id}')">
+            <span class="agm-bar" style="background:${STAGE_COLOR[o.estado]}"></span>
+            <div class="agm-body">
+              <div class="agm-cli">${esc(o.cliente)} <span class="muted">· ${esc(o.tecnico)}</span></div>
+              <div class="agm-sub">${esc(devLabel(o))||o.id} — ${ESTADO_LABEL[o.estado]}</div>
+            </div>
+          </div>`).join("") : `<div class="agm-vazio">Sem agendamentos</div>`}
+      </div>`;
+    });
+    $("#agenda-mobile").innerHTML = ml;
+
     const todo = scoped().filter(o=>o.tecnico && !o.agenda && o.estado!=="entregue");
     $("#agenda-todo").innerHTML = todo.length ? todo.map(o=>`
       <div class="mini-row" style="cursor:pointer" onclick="App.openDetail('${o.id}')">
