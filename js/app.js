@@ -115,7 +115,7 @@ const App = (() => {
   }
   function factoryReset(){
     if(!session || session.role!=="admin"){ alert("Só o administrador pode repor o sistema."); return; }
-    if(!confirm("Repor o sistema?\n\nIsto APAGA todas as ordens, clientes, técnicos e catálogos inseridos.\nAs contas de acesso e as lojas mantêm-se.\n\nEsta ação não pode ser anulada.")) return;
+    if(!confirm("Repor o sistema?\n\nIsto APAGA todas as assistências, clientes, técnicos e catálogos inseridos.\nAs contas de acesso e as lojas mantêm-se.\n\nEsta ação não pode ser anulada.")) return;
     resetData();
     prevNotif = null; agendaWeek = null;
     closeModal();
@@ -129,7 +129,7 @@ const App = (() => {
   const esc = s => (s==null?"":String(s)).replace(/[&<>"]/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
   const money = n => (Number(n)||0).toLocaleString("pt-PT") + "$";
   const lojaNome = id => (window.SEED.lojas.find(l=>l.id===id)||{}).nome || id || "—";
-  const nextId = () => "OS-" + String(db.ordens.reduce((m,o)=>Math.max(m, parseInt((o.id.split("-")[1]||"0"),10)),0)+1).padStart(4,"0");
+  const nextId = () => "AS-" + String(db.ordens.reduce((m,o)=>Math.max(m, parseInt((o.id.split("-")[1]||"0"),10)),0)+1).padStart(4,"0");
   const monthOf = o => (o.entrada||"").slice(0,7);  // YYYY-MM
 
   // o responsável técnico e o admin veem todas as lojas; o utilizador vê só a sua
@@ -210,6 +210,11 @@ const App = (() => {
       document.removeEventListener("click", closeAccountOnce);
     }
   }
+  function navFromMenu(page){
+    $("#account").classList.remove("open");
+    document.removeEventListener("click", closeAccountOnce);
+    go(page);
+  }
 
   // ---------- boot after login ----------
   function boot(target){
@@ -229,6 +234,8 @@ const App = (() => {
     document.querySelectorAll(".new-os-btn").forEach(b=>b.style.display = can("createOrder")?"":"none");
     document.querySelectorAll(".cli-add").forEach(b=>b.style.display = canManageClients()?"":"none");
     document.querySelectorAll(".tec-add").forEach(b=>b.style.display = canManageTecnicos()?"":"none");
+    document.querySelectorAll(".tec-nav").forEach(b=>b.style.display = canManageTecnicos()?"":"none");
+    document.querySelectorAll(".acc-menu .admin-only").forEach(b=>b.style.display = session.role==="admin"?"":"none");
     document.querySelectorAll(".agenda-nav").forEach(b=>b.style.display = canManageTecnicos()?"":"none");
     agendaWeek = null;
     updateNotif();
@@ -309,14 +316,14 @@ const App = (() => {
       const ab = db.ordens.filter(o=>o.loja===l.id && o.estado!=="entregue").length;
       return `<div class="hw-card">
         <div class="hw-name">${esc(shortStore(l.nome))}</div>
-        <div class="hw-num">${n} OS</div>
+        <div class="hw-num">${n} assist.</div>
         <div class="hw-status ${ab?'on':'off'}">${ab? ab+" ativas":"Sem ativas"}</div>
       </div>`;
     }).join("");
 
     // --- 2x2 metrics ---
     $("#kpis").innerHTML = `
-      ${kpi("OS abertas", abertas, "em curso", true, KPI_ICON.abertas)}
+      ${kpi("Assistências abertas", abertas, "em curso", true, KPI_ICON.abertas)}
       ${kpi("Em reparação", count("reparacao"), "com técnicos", false, KPI_ICON.reparacao)}
       ${kpi("Entregues", count("entregue"), "no histórico", false, KPI_ICON.entregues)}
       ${kpi("A aguardar entrega", count("concluida"), "prontas", false, KPI_ICON.aguardar)}
@@ -348,7 +355,7 @@ const App = (() => {
         <td>${badge(o.estado)}</td>
         <td>${esc(o.tecnico||"—")}</td>
         <td style="text-align:right">${money(o.preco)}</td>
-      </tr>`).join("") || `<tr><td colspan="6" class="empty">Sem ordens.</td></tr>`;
+      </tr>`).join("") || `<tr><td colspan="6" class="empty">Sem assistências.</td></tr>`;
   }
 
   function renderMonthBars(list){
@@ -409,14 +416,14 @@ const App = (() => {
   // ---------- export ----------
   function exportMonth(){
     const list = currentFilter();
-    if(!list.length){ alert("Não há ordens para exportar com os filtros atuais."); return; }
+    if(!list.length){ alert("Não há assistências para exportar com os filtros atuais."); return; }
     const cols = [
       ["Entidade","cliente"],["Morada","morada"],["Localizacao","localizacao"],["Dispositivos","dispositivo"],
       ["Marca / Modelo","marca"],["Qty","qty"],["Serial Number","serial"],
       ["Prioridade",o=>o.prioridade==="urgente"?"Urgente":"Normal"],
       ["Estado",o=>ESTADO_LABEL[o.estado]],["Descricao de Avaria","avaria"],["Entrada","entrada"],
       ["Agendamento","agenda"],["Taxa","taxa"],["Preco","preco"],["Descricao de Conserto","conserto"],
-      ["Saida","saida"],["Tecnico","tecnico"],["Loja",o=>lojaNome(o.loja)],["OS","id"]
+      ["Saida","saida"],["Tecnico","tecnico"],["Loja",o=>lojaNome(o.loja)],["Assistencia","id"]
     ];
     const cell = v => `"${String(v==null?"":v).replace(/"/g,'""')}"`;
     const head = cols.map(c=>cell(c[0])).join(";");
@@ -424,7 +431,7 @@ const App = (() => {
     const csv = "﻿" + head + "\r\n" + body;   // BOM => Excel abre com acentos
     const mes = $("#filter-mes").value || "todos";
     const loja = session.role==="admin" ? ($("#filter-loja").value||"todas") : session.store;
-    download(`OS_${loja}_${mes}.csv`, csv);
+    download(`Assistencias_${loja}_${mes}.csv`, csv);
   }
   function download(name, text){
     const blob = new Blob([text], {type:"text/csv;charset=utf-8;"});
@@ -439,14 +446,14 @@ const App = (() => {
   function opt(arr,sel){return arr.map(v=>`<option ${v===sel?"selected":""}>${esc(v)}</option>`).join("");}
 
   function openNew(){
-    if(!can("createOrder")){ alert("O teu perfil não regista ordens."); return; }
+    if(!can("createOrder")){ alert("O teu perfil não regista assistências."); return; }
     currentDetailId = null;
     const lojas = seesAllStores() ? window.SEED.lojas : window.SEED.lojas.filter(l=>l.id===session.store);
     $("#modal-root").innerHTML = `
     <div class="modal-bg" onclick="if(event.target===this)App.closeModal()">
       <div class="modal">
         <button class="modal-close" onclick="App.closeModal()">&times;</button>
-        <h3>Nova ordem de serviço</h3>
+        <h3>Nova assistência</h3>
         <p class="sub">Registo dos dados recebidos do cliente. A atribuição do técnico e o valor ficam para o responsável técnico.</p>
         <div class="form-grid">
           <div><label>Loja</label><select id="f-loja" ${lojas.length===1?"disabled":""}>${lojas.map(l=>`<option value="${l.id}">${esc(l.nome)}</option>`).join("")}</select></div>
@@ -460,7 +467,7 @@ const App = (() => {
         </div>
         <div class="modal-actions">
           <button class="btn ghost" onclick="App.closeModal()">Cancelar</button>
-          <button class="btn primary" onclick="App.createOrder()">Registar ordem</button>
+          <button class="btn primary" onclick="App.createOrder()">Registar assistência</button>
         </div>
       </div>
     </div>`;
@@ -631,7 +638,7 @@ const App = (() => {
     db.clientes.push(nome); db.clientes.sort((a,b)=>a.localeCompare(b)); save(); closeModal(); renderClientes();
   }
   function delClient(nome){
-    if(db.ordens.some(o=>o.cliente===nome)){ alert("Não dá para remover: este cliente tem ordens registadas."); return; }
+    if(db.ordens.some(o=>o.cliente===nome)){ alert("Não dá para remover: este cliente tem assistências registadas."); return; }
     if(!confirm(`Remover o cliente "${nome}"?`)) return;
     db.clientes = (db.clientes||[]).filter(c=>c!==nome); save(); renderClientes();
   }
@@ -659,37 +666,46 @@ const App = (() => {
         <td>${r.abertas||"—"}</td>
         <td>${r.entregues||"—"}</td>
         <td>${money(r.fatur)}</td>
-        <td style="padding-right:20px;text-align:right" onclick="event.stopPropagation()">
+        <td style="padding-right:20px;text-align:right;white-space:nowrap" onclick="event.stopPropagation()">
+          ${canMng?`<button class="link-btn" onclick="App.openTecnico('${jsStr(r.nome)}')">Editar</button>`:""}
           ${(canMng && r.total===0)?`<button class="link-btn danger" onclick="App.delTecnico('${jsStr(r.nome)}')">Remover</button>`:""}
         </td>
       </tr>`).join("");
   }
   function tecnicoOrders(nome){ go("ordens"); $("#search").value=nome; if($("#filter-mes"))$("#filter-mes").value=""; renderTable(); }
-  function openTecnico(){
+  function openTecnico(name){
     if(!canManageTecnicos()){ alert("Só o responsável técnico ou o administrador gerem técnicos."); return; }
     currentDetailId = null;
+    const editing = name!=null;
     $("#modal-root").innerHTML = `
     <div class="modal-bg" onclick="if(event.target===this)App.closeModal()">
       <div class="modal" style="max-width:440px">
         <button class="modal-close" onclick="App.closeModal()">&times;</button>
-        <h3>Novo técnico</h3>
-        <p class="sub">Adiciona um técnico à equipa (fica disponível para atribuição nas OS).</p>
-        <div class="form-grid"><div class="full"><label>Nome do técnico</label><input id="t-nome" placeholder="Ex.: João Silva" onkeydown="if(event.key==='Enter')App.saveTecnico()"></div></div>
+        <h3>${editing?"Editar técnico":"Novo técnico"}</h3>
+        <p class="sub">${editing?"Alterar o nome atualiza também as assistências deste técnico.":"Adiciona um técnico à equipa (fica disponível para atribuição nas assistências)."}</p>
+        <div class="form-grid"><div class="full"><label>Nome do técnico</label><input id="t-nome" value="${editing?esc(name):""}" placeholder="Ex.: João Silva" onkeydown="if(event.key==='Enter')App.saveTecnico(${editing?`'${jsStr(name)}'`:"null"})"></div></div>
         <div class="modal-actions">
           <button class="btn ghost" onclick="App.closeModal()">Cancelar</button>
-          <button class="btn primary" onclick="App.saveTecnico()">Adicionar</button>
+          <button class="btn primary" onclick="App.saveTecnico(${editing?`'${jsStr(name)}'`:"null"})">${editing?"Guardar":"Adicionar"}</button>
         </div>
       </div></div>`;
     setTimeout(()=>$("#t-nome").focus(),50);
   }
-  function saveTecnico(){
+  function saveTecnico(oldName){
     const nome=$("#t-nome").value.trim(); if(!nome){ alert("Indica o nome."); return; }
     if(!db.tecnicos) db.tecnicos=[];
-    if(db.tecnicos.some(t=>t.toLowerCase()===nome.toLowerCase())){ alert("Esse técnico já existe."); return; }
-    db.tecnicos.push(nome); db.tecnicos.sort((a,b)=>a.localeCompare(b)); save(); closeModal(); renderTecnicos();
+    const dup = db.tecnicos.some(t=>t.toLowerCase()===nome.toLowerCase() && t!==oldName);
+    if(dup){ alert("Esse técnico já existe."); return; }
+    if(oldName!=null){
+      db.tecnicos = db.tecnicos.map(t=>t===oldName?nome:t);
+      db.ordens.forEach(o=>{ if(o.tecnico===oldName) o.tecnico=nome; }); // mantém as assistências coerentes
+    } else {
+      db.tecnicos.push(nome);
+    }
+    db.tecnicos.sort((a,b)=>a.localeCompare(b)); save(); closeModal(); renderTecnicos();
   }
   function delTecnico(nome){
-    if(db.ordens.some(o=>o.tecnico===nome)){ alert("Não dá para remover: este técnico tem ordens atribuídas."); return; }
+    if(db.ordens.some(o=>o.tecnico===nome)){ alert("Não dá para remover: este técnico tem assistências atribuídas."); return; }
     if(!confirm(`Remover o técnico "${nome}"?`)) return;
     db.tecnicos = (db.tecnicos||[]).filter(t=>t!==nome); save(); renderTecnicos();
   }
@@ -711,7 +727,7 @@ const App = (() => {
     const sched = scoped().filter(o=>o.tecnico && o.agenda && o.estado!=="entregue");
     const techs = [...new Set(scoped().filter(o=>o.tecnico && o.estado!=="entregue").map(o=>o.tecnico))].sort((a,b)=>a.localeCompare(b));
     if(!techs.length){
-      $("#agenda-grid").innerHTML = `<div class="empty">Sem técnicos com OS ativas nesta semana.</div>`;
+      $("#agenda-grid").innerHTML = `<div class="empty">Sem técnicos com assistências ativas nesta semana.</div>`;
     } else {
       let h = `<div class="agenda"><div class="ag-head" style="text-align:left;padding-left:12px">Técnico</div>`;
       days.forEach((d,i)=>{ h += `<div class="ag-head ${isoD(d)===todayISO?"today":""}">${dnames[i]}<br>${fmt(d)}</div>`; });
@@ -854,5 +870,5 @@ const App = (() => {
           renderClientes, openClient, saveClient, delClient, clienteOrders,
           renderTecnicos, openTecnico, saveTecnico, delTecnico, tecnicoOrders,
           renderAgenda, agendaPrev, agendaNext, agendaToday,
-          toggleNotif, openFromNotif};
+          toggleNotif, openFromNotif, navFromMenu};
 })();
