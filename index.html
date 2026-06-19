@@ -33,14 +33,14 @@
       <h2>Bem-vindo de volta!</h2>
       <p class="login-sub">As contas são criadas pelo administrador. Entra com as tuas credenciais.</p>
       <div class="lf-field">
-        <input id="login-user" autocomplete="username" placeholder="Utilizador" onkeydown="if(event.key==='Enter')App.login()">
+        <input id="login-user" type="email" autocomplete="username" placeholder="Email" onkeydown="if(event.key==='Enter')App.login()">
       </div>
       <div class="lf-field">
         <input id="login-pass" type="password" autocomplete="current-password" placeholder="Senha" onkeydown="if(event.key==='Enter')App.login()">
       </div>
-      <p id="login-error" class="login-error hidden">Utilizador ou senha incorretos.</p>
+      <p id="login-error" class="login-error hidden">Email ou senha incorretos.</p>
       <button class="btn dark login-btn" onclick="App.login()">Entrar</button>
-      <p class="lf-hint">Contas de teste: <code>admin/admin</code> · <code>gscenter/123</code> · <code>responsavel/123</code></p>
+      <p class="lf-hint">Usa o email e a senha fornecidos pelo administrador.</p>
     </div>
   </div>
 </div>
@@ -290,12 +290,12 @@
       <div class="toolbar">
         <span style="color:var(--muted);font-size:13px">Gestão de acessos</span>
         <button class="btn danger spacer" onclick="App.factoryReset()" title="Apaga assistências, clientes, técnicos e catálogos; mantém contas e lojas">&#8635; Repor sistema</button>
-        <button class="btn primary" onclick="App.openUser()">+ Novo utilizador</button>
+        <button class="btn primary" onclick="App.openUser()">+ Nova conta</button>
       </div>
       <div class="panel" style="padding:8px 0">
         <table class="responsive">
           <thead><tr>
-            <th style="padding-left:20px">Nome</th><th>Utilizador</th><th>Perfil</th><th>Loja</th><th style="padding-right:20px"></th>
+            <th style="padding-left:20px">Nome</th><th>Email</th><th>Perfil</th><th>Loja</th><th style="padding-right:20px"></th>
           </tr></thead>
           <tbody id="users-body"></tbody>
         </table>

@@ -1,7 +1,6 @@
 const App = (() => {
   const KEY = "tecnoassist_db_v4";
-  const SKEY = "tecnoassist_sess";   // sessão atual (utilizador) — sobrevive a refresh
-  const PKEY = "tecnoassist_page";   // última página aberta
+  const PKEY = "tecnoassist_page";   // última página aberta (a sessão é gerida pelo Supabase Auth)
   // fluxo linear (cancelada é uma saída, não entra na sequência)
   const ESTADOS = ["registado","diagnostico","orcamento","manutencao","finalizado","entregue"];
   const ESTADO_LABEL = {
@@ -25,15 +24,7 @@ const App = (() => {
     finalizado:  ["operador","responsavel","admin"], // entrega ao cliente
   };
   const isOpen = o => o.estado!=="entregue" && o.estado!=="cancelada"; // assistência em curso
-
-  // contas iniciais (geridas pelo administrador na página Contas)
-  const DEFAULT_USERS = [
-    {nome:"Administrador",       user:"admin",     pass:"admin", role:"admin",       loja:null},
-    {nome:"Utilizador Recoshop", user:"recoshop",  pass:"123",   role:"operador",    loja:"Recoshop"},
-    {nome:"Utilizador G.S.",     user:"gscenter",  pass:"123",   role:"operador",    loja:"G.S.Center"},
-    {nome:"Utilizador LifeTech", user:"lifetech",  pass:"123",   role:"operador",    loja:"LifeTech"},
-    {nome:"Responsável Técnico", user:"responsavel",pass:"123",  role:"responsavel", loja:null},
-  ];
+  // contas são geridas pelo Supabase Auth (+ tabela profiles), via Edge Function admin-users
 
   let db = null;        // {ordens, clientes, ..., utilizadores}
   let session = null;   // current user object
@@ -43,7 +34,6 @@ const App = (() => {
 
   // ---------- persistence ----------
   function ensureShape(){
-    if(!db.utilizadores) db.utilizadores = JSON.parse(JSON.stringify(DEFAULT_USERS));
     if(!Array.isArray(db.lojas) || !db.lojas.length) db.lojas = JSON.parse(JSON.stringify(window.SEED.lojas));
     ["clientes","localizacoes","dispositivos","marcas","tecnicos","ordens"].forEach(k=>{ if(!Array.isArray(db[k])) db[k]=[]; });
   }
@@ -62,38 +52,81 @@ const App = (() => {
   function save(){ persistLocal(); cloudPushDebounced(); }
   function resetData(){ localStorage.removeItem(KEY); load(); save(); }
 
-  // ---------- sincronização na nuvem (Supabase) — opcional ----------
+  // ---------- Supabase: autenticação + sincronização ----------
   const CFG = window.TECNOASSIST_CONFIG || {};
   const cloudEnabled = !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY);
-  let supa = null, cloudTimer = null, applyingRemote = false;
+  let supa = null, cloudTimer = null, applyingRemote = false, cloudChannel = null;
+  let usersCache = [];
+
   function cloudPushDebounced(){ if(!cloudEnabled) return; clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudPush, 300); }
   async function cloudPush(){
-    if(!supa || applyingRemote) return;
+    if(!supa || !session || applyingRemote) return; // só grava autenticado
     try{ await supa.from("tecnoassist_state").upsert({ id:1, data:db, updated_at:new Date().toISOString() }); }
-    catch(e){ console.warn("TecnoAssist: falha ao guardar na nuvem", e); }
+    catch(e){ console.warn("Assistência Técnica: falha ao guardar na nuvem", e); }
   }
   function applyRemote(remote){
     if(!remote || typeof remote!=="object" || !Object.keys(remote).length) return;
     applyingRemote = true; db = remote; ensureShape(); persistLocal(); applyingRemote = false;
     refreshUI();
   }
-  async function cloudStart(){
-    if(!cloudEnabled) return;
+
+  // arranque: cria o cliente, restaura sessão (se houver) e reage a sign-in/out
+  async function initAuth(){
+    if(!cloudEnabled){ setCloudMode(false); $("#login-error").textContent="Serviço não configurado."; return; }
     try{
       const m = await import("https://esm.sh/@supabase/supabase-js@2");
       supa = m.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+      const { data:{ session: sess } } = await supa.auth.getSession();
+      if(sess) await onAuthenticated(sess);
+      supa.auth.onAuthStateChange((event)=>{ if(event==="SIGNED_OUT") showLogin(); });
+    }catch(e){ console.warn("Auth indisponível:", e); setCloudMode(false); }
+  }
+
+  async function onAuthenticated(sess){
+    const ok = await loadProfile(sess.user);
+    if(!ok){
+      alert("A tua conta ainda não tem perfil/permissões atribuídos. Contacta o administrador.");
+      await supa.auth.signOut(); showLogin(); return;
+    }
+    try{ supa.realtime.setAuth(sess.access_token); }catch(e){}
+    $("#login").classList.add("hidden");
+    $("#app").classList.add("active");
+    await cloudConnect();
+    boot(localStorage.getItem(PKEY) || "dashboard");
+  }
+
+  async function loadProfile(user){
+    try{
+      const { data, error } = await supa.from("profiles").select("nome,role,loja").eq("id", user.id).single();
+      if(error || !data || !data.role) return false;
+      session = { uid:user.id, user:user.email, nome:data.nome||user.email, role:data.role, store:data.loja };
+      return true;
+    }catch(e){ return false; }
+  }
+
+  // busca o estado partilhado e subscreve o tempo real (requer sessão)
+  async function cloudConnect(){
+    try{
       const { data, error } = await supa.from("tecnoassist_state").select("data").eq("id",1).maybeSingle();
       if(error) throw error;
       if(data && data.data && Object.keys(data.data).length) applyRemote(data.data);
       else await cloudPush(); // primeira vez: envia o estado atual
-      supa.channel("tecnoassist")
-        .on("postgres_changes", {event:"*", schema:"public", table:"tecnoassist_state", filter:"id=eq.1"},
-            p => applyRemote(p.new && p.new.data))
-        .subscribe();
+      if(!cloudChannel){
+        cloudChannel = supa.channel("tecnoassist")
+          .on("postgres_changes", {event:"*", schema:"public", table:"tecnoassist_state", filter:"id=eq.1"},
+              p => applyRemote(p.new && p.new.data))
+          .subscribe();
+      }
       setCloudMode(true);
-    }catch(e){ console.warn("TecnoAssist: nuvem indisponível, a usar modo local.", e); setCloudMode(false); }
+    }catch(e){ console.warn("Falha ao ligar aos dados:", e); setCloudMode(false); }
   }
-  function setCloudMode(on){ const el=$("#cloud-mode"); if(el) el.textContent = on ? "Sincronizado · nuvem" : "Modo local · este dispositivo"; }
+  function setCloudMode(on){ const el=$("#cloud-mode"); if(el) el.textContent = on ? "Sincronizado · nuvem" : "Sem ligação aos dados"; }
+  function showLogin(){
+    document.body.classList.remove("role-admin");
+    $("#account").classList.remove("open");
+    $("#app").classList.remove("active");
+    $("#login").classList.remove("hidden");
+  }
   function renderActive(){
     const active = document.querySelector(".page.active");
     const p = active ? active.id.replace("page-","") : "dashboard";
@@ -153,40 +186,24 @@ const App = (() => {
     return false;
   };
 
-  // ---------- login ----------
-  function login(){
-    const u = $("#login-user").value.trim();
-    const p = $("#login-pass").value;
-    const acc = db.utilizadores.find(x=>x.user.toLowerCase()===u.toLowerCase() && x.pass===p);
-    if(!acc){ $("#login-error").classList.remove("hidden"); return; }
+  // ---------- login (Supabase Auth) ----------
+  async function login(){
+    if(!supa){ $("#login-error").textContent="Serviço indisponível. Tenta novamente."; $("#login-error").classList.remove("hidden"); return; }
+    const email = $("#login-user").value.trim();
+    const password = $("#login-pass").value;
+    const btn = $(".login-btn"); if(btn){ btn.disabled=true; btn.textContent="A entrar…"; }
+    const { data, error } = await supa.auth.signInWithPassword({ email, password });
+    if(btn){ btn.disabled=false; btn.textContent="Entrar"; }
+    if(error){ $("#login-error").textContent="Email ou senha incorretos."; $("#login-error").classList.remove("hidden"); return; }
     $("#login-error").classList.add("hidden");
-    session = {nome:acc.nome, role:acc.role, store:acc.loja, user:acc.user};
-    localStorage.setItem(SKEY, acc.user);
     $("#login-pass").value="";
-    $("#login").classList.add("hidden");
-    $("#app").classList.add("active");
-    boot();
+    await onAuthenticated(data.session);
   }
-  function logout(){
-    session = null;
-    prevNotif = null;
-    localStorage.removeItem(SKEY);
+  async function logout(){
+    try{ if(supa) await supa.auth.signOut(); }catch(e){}
+    session = null; prevNotif = null;
     localStorage.removeItem(PKEY);
-    document.body.classList.remove("role-admin");
-    $("#account").classList.remove("open");
-    $("#app").classList.remove("active");
-    $("#login").classList.remove("hidden");
-  }
-  // repõe a sessão após um refresh, mantendo a página onde estava
-  function restoreSession(){
-    const u = localStorage.getItem(SKEY);
-    if(!u) return;
-    const acc = (db.utilizadores||[]).find(x=>x.user===u);
-    if(!acc){ localStorage.removeItem(SKEY); return; }
-    session = {nome:acc.nome, role:acc.role, store:acc.loja, user:acc.user};
-    $("#login").classList.add("hidden");
-    $("#app").classList.add("active");
-    boot(localStorage.getItem(PKEY) || "dashboard");
+    showLogin();
   }
 
   function toggleTheme(){
@@ -843,41 +860,54 @@ const App = (() => {
     openDetail(id);
   }
 
-  // ---------- users (admin) ----------
-  function renderUsers(){
-    $("#users-body").innerHTML = db.utilizadores.map((u,i)=>`
-      <tr>
-        <td style="padding-left:20px" data-label="Nome">${esc(u.nome)}</td>
-        <td data-label="Utilizador"><code>${esc(u.user)}</code></td>
-        <td data-label="Perfil">${ROLE_LABEL[u.role]}</td>
-        <td data-label="Loja">${(u.role==="admin"||u.role==="responsavel")?"Todas":esc(lojaNome(u.loja))}</td>
-        <td style="padding-right:20px;text-align:right" data-label="">
-          <button class="link-btn" onclick="App.openUser(${i})">Editar</button>
-          ${u.user==="admin"?"":`<button class="link-btn danger" onclick="App.delUser(${i})">Remover</button>`}
-        </td>
-      </tr>`).join("");
+  // ---------- contas (admin) — via Edge Function admin-users ----------
+  async function adminUsers(action, payload){
+    const { data, error } = await supa.functions.invoke("admin-users", { body:{ action, ...(payload||{}) } });
+    if(error){ throw new Error((data && data.error) || error.message || "erro"); }
+    if(data && data.error){ throw new Error(data.error); }
+    return data;
   }
-  function openUser(i){
+  async function renderUsers(){
+    const tb = $("#users-body");
+    tb.innerHTML = `<tr><td colspan="5" class="empty">A carregar contas…</td></tr>`;
+    try{
+      const data = await adminUsers("list");
+      usersCache = (data && data.users) || [];
+      tb.innerHTML = usersCache.map(u=>`
+        <tr>
+          <td style="padding-left:20px" data-label="Nome">${esc(u.nome||"—")}</td>
+          <td data-label="Email"><code>${esc(u.email||"")}</code></td>
+          <td data-label="Perfil">${ROLE_LABEL[u.role]||esc(u.role)}</td>
+          <td data-label="Loja">${(u.role==="admin"||u.role==="responsavel")?"Todas":esc(lojaNome(u.loja))}</td>
+          <td style="padding-right:20px;text-align:right" data-label="">
+            <button class="link-btn" onclick="App.openUser('${u.id}')">Editar</button>
+            ${u.id===session.uid?"":`<button class="link-btn danger" onclick="App.delUser('${u.id}')">Remover</button>`}
+          </td>
+        </tr>`).join("") || `<tr><td colspan="5" class="empty">Ainda não há contas.</td></tr>`;
+    }catch(e){ tb.innerHTML = `<tr><td colspan="5" class="empty">Não foi possível carregar as contas.<br><span style="font-size:11px">${esc(e.message)}</span></td></tr>`; }
+  }
+  function openUser(id){
     currentDetailId = null;
-    const u = (i!=null) ? db.utilizadores[i] : {nome:"",user:"",pass:"",role:"operador",loja:"Recoshop"};
+    const u = id ? (usersCache.find(x=>x.id===id)||{}) : {nome:"",email:"",role:"operador",loja:"Recoshop"};
+    const editing = !!id;
     const roleOpts = Object.entries(ROLE_LABEL).map(([k,v])=>`<option value="${k}" ${u.role===k?"selected":""}>${v}</option>`).join("");
     const lojaOpts = window.SEED.lojas.map(l=>`<option value="${l.id}" ${u.loja===l.id?"selected":""}>${esc(l.nome)}</option>`).join("");
     $("#modal-root").innerHTML = `
     <div class="modal-bg" onclick="if(event.target===this)App.closeModal()">
       <div class="modal">
         <button class="modal-close" onclick="App.closeModal()">&times;</button>
-        <h3>${i!=null?"Editar utilizador":"Novo utilizador"}</h3>
-        <p class="sub">O administrador define o perfil (função) e a loja de acesso.</p>
+        <h3>${editing?"Editar conta":"Nova conta"}</h3>
+        <p class="sub">O administrador define o email de acesso, o perfil (função) e a loja.</p>
         <div class="form-grid">
-          <div class="full"><label>Nome</label><input id="u-nome" value="${esc(u.nome)}"></div>
-          <div><label>Utilizador</label><input id="u-user" value="${esc(u.user)}" ${u.user==="admin"?"readonly":""}></div>
-          <div><label>Senha</label><input id="u-pass" value="${esc(u.pass)}"></div>
+          <div class="full"><label>Nome</label><input id="u-nome" value="${esc(u.nome||"")}"></div>
+          <div class="full"><label>Email</label><input id="u-email" type="email" value="${esc(u.email||"")}" ${editing?"readonly":""}></div>
+          <div class="full"><label>Senha ${editing?"<span style='color:var(--muted)'>(deixa em branco para manter)</span>":""}</label><input id="u-pass" type="text" placeholder="${editing?"••••••":"senha inicial"}"></div>
           <div><label>Perfil / função</label><select id="u-role" onchange="App._toggleLoja()">${roleOpts}</select></div>
           <div id="u-loja-wrap"><label>Loja</label><select id="u-loja">${lojaOpts}</select></div>
         </div>
         <div class="modal-actions">
           <button class="btn ghost" onclick="App.closeModal()">Cancelar</button>
-          <button class="btn primary" onclick="App.saveUser(${i==null?'null':i})">Guardar</button>
+          <button class="btn primary" id="u-save" onclick="App.saveUser(${editing?`'${id}'`:'null'})">Guardar</button>
         </div>
       </div>
     </div>`;
@@ -888,27 +918,30 @@ const App = (() => {
     const global = r==="admin" || r==="responsavel";
     $("#u-loja-wrap").style.visibility = global ? "hidden":"visible";
   }
-  function saveUser(i){
-    const nome=$("#u-nome").value.trim(), user=$("#u-user").value.trim(), pass=$("#u-pass").value;
+  async function saveUser(id){
+    const nome=$("#u-nome").value.trim(), email=$("#u-email").value.trim(), pass=$("#u-pass").value;
     const role=$("#u-role").value, loja = (role==="admin"||role==="responsavel")?null:$("#u-loja").value;
-    if(!nome||!user||!pass){ alert("Preenche nome, utilizador e senha."); return; }
-    const dup = db.utilizadores.find((x,j)=>x.user.toLowerCase()===user.toLowerCase() && j!==i);
-    if(dup){ alert("Já existe um utilizador com esse nome de acesso."); return; }
-    const obj = {nome,user,pass,role,loja};
-    if(i==null) db.utilizadores.push(obj); else db.utilizadores[i]=obj;
-    save(); closeModal(); renderUsers();
+    if(!nome){ alert("Indica o nome."); return; }
+    if(!id && (!email || !pass)){ alert("Para uma nova conta, indica email e senha."); return; }
+    const btn=$("#u-save"); if(btn){ btn.disabled=true; btn.textContent="A guardar…"; }
+    try{
+      if(id) await adminUsers("update", { id, nome, role, loja, password: pass||undefined });
+      else   await adminUsers("create", { email, password:pass, nome, role, loja });
+      closeModal(); renderUsers();
+    }catch(e){ if(btn){ btn.disabled=false; btn.textContent="Guardar"; } alert("Erro: "+e.message); }
   }
-  function delUser(i){
-    if(db.utilizadores[i].user==="admin") return;
-    if(!confirm(`Remover o utilizador "${db.utilizadores[i].nome}"?`)) return;
-    db.utilizadores.splice(i,1); save(); renderUsers();
+  async function delUser(id){
+    if(id===session.uid){ alert("Não podes remover a tua própria conta."); return; }
+    const u = usersCache.find(x=>x.id===id)||{};
+    if(!confirm(`Remover a conta "${u.nome||u.email||id}"?`)) return;
+    try{ await adminUsers("delete", { id }); renderUsers(); }
+    catch(e){ alert("Erro ao remover: "+e.message); }
   }
 
   // ---------- init ----------
-  load();
+  load();        // cache local p/ pintura rápida; os dados reais chegam após autenticar
   applyTheme();
-  restoreSession();
-  cloudStart();
+  initAuth();    // restaura sessão Supabase (se houver) ou mostra o login
 
   return {login, logout, go, renderTable, openNew, createOrder, openDetail, saveDetail, advance, cancelOrder,
           closeModal, resetData, factoryReset, exportMonth, openUser, saveUser, delUser, _toggleLoja, toggleAccount, toggleTheme, setTheme,
