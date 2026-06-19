@@ -29,17 +29,43 @@ button{font-family:inherit;cursor:pointer}
 a{color:inherit;text-decoration:none}
 .hidden{display:none !important}
 
-/* ---------- Login ---------- */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.login-card{background:var(--surface);border-radius:24px;padding:34px;width:100%;max-width:380px;box-shadow:var(--shadow);border:1px solid var(--line)}
-.login-card .logo{margin-bottom:18px}
-.login-card h1{font-size:22px;margin-bottom:4px}
-.login-card p.sub{color:var(--muted);margin-bottom:22px}
-.field{margin-bottom:14px}
-.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
-.field select,.field input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;font-size:14px;background:var(--surface-2)}
-.field select:focus,.field input:focus{outline:none;border-color:var(--orange)}
-.login-error{color:#dc2626;font-size:13px;margin:-4px 0 12px}
+/* ---------- Login (2 painéis) ---------- */
+.login2{display:grid;grid-template-columns:1.05fr 1fr;min-height:100vh}
+.login-hero{position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:48px;color:#fff;
+  background:linear-gradient(145deg,#f1592a 0%,#df4a1f 45%,#b5350f 100%)}
+.login-rings{position:absolute;top:8%;left:-30%;width:140%;height:120%;pointer-events:none;opacity:.16;
+  background:
+    radial-gradient(circle at 18% 28%, transparent 0 78px, #fff 79px 80px, transparent 81px),
+    radial-gradient(circle at 18% 28%, transparent 0 148px, #fff 149px 150px, transparent 151px),
+    radial-gradient(circle at 18% 28%, transparent 0 228px, #fff 229px 230px, transparent 231px),
+    radial-gradient(circle at 18% 28%, transparent 0 318px, #fff 319px 320px, transparent 321px)}
+.login-logo{position:relative;width:56px;height:56px;border-radius:16px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;color:#fff}
+.login-hero-mid{position:relative;margin:auto 0}
+.login-hero-mid h1{color:#fff;font-size:46px;line-height:1.08;font-weight:700;letter-spacing:-1px;margin-bottom:18px}
+.login-hero-mid .wave{display:inline-block}
+.login-hero-mid p{color:rgba(255,255,255,.88);font-size:15px;line-height:1.65;max-width:430px}
+.login-copy{position:relative;font-size:12px;color:rgba(255,255,255,.72)}
+
+.login-form{display:flex;flex-direction:column;background:var(--surface);padding:40px 48px}
+.login-brandtop{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px}
+.login-form-inner{margin:auto;width:100%;max-width:360px}
+.login-form-inner h2{font-size:27px;font-weight:700;margin-bottom:6px}
+.login-sub{color:var(--muted);font-size:13px;line-height:1.5;margin-bottom:30px}
+.lf-field{margin-bottom:24px}
+.lf-field input{width:100%;border:none;border-bottom:2px solid var(--line);background:transparent;padding:10px 2px;font-size:15px;color:var(--ink)}
+.lf-field input::placeholder{color:var(--muted)}
+.lf-field input:focus{outline:none;border-bottom-color:var(--orange)}
+.login-btn{width:100%;padding:13px;font-size:15px;border-radius:12px;margin-top:4px}
+.login-error{color:#dc2626;font-size:13px;margin:-12px 0 14px}
+.lf-hint{margin-top:20px;font-size:12px;color:var(--muted);line-height:1.6}
+
+@media(max-width:760px){
+  .login2{grid-template-columns:1fr}
+  .login-hero{display:none}
+  .login-form{padding:30px 22px;min-height:100vh;justify-content:flex-start}
+  .login-brandtop{margin-bottom:8px}
+  .login-form-inner{margin-top:8vh}
+}
 .login-card code{background:var(--surface-2);padding:1px 6px;border-radius:6px;font-size:12px}
 
 /* visibilidade por perfil é controlada via classe .hidden no JS (boot) */

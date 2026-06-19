@@ -9,22 +9,39 @@
 <body>
 
 <!-- ============ LOGIN ============ -->
-<div id="login" class="login-wrap">
-  <div class="login-card">
-    <div class="brand logo"><span class="logo-mark"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10h3V7L6.5 3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8L7 10z"/></svg></span> Assistência Técnica</div>
-    <h1>Entrar</h1>
-    <p class="sub">Plataforma de gestão de assistências. As contas são criadas pelo administrador.</p>
-    <div class="field">
-      <label>Utilizador</label>
-      <input id="login-user" autocomplete="username" placeholder="ex.: admin" onkeydown="if(event.key==='Enter')App.login()">
+<div id="login" class="login2">
+  <!-- Painel hero -->
+  <div class="login-hero">
+    <div class="login-rings" aria-hidden="true"></div>
+    <span class="login-logo">
+      <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10h3V7L6.5 3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8L7 10z"/></svg>
+    </span>
+    <div class="login-hero-mid">
+      <h1>Olá! <span class="wave">&#128075;</span><br>Assistência Técnica</h1>
+      <p>Gere as assistências dos teus clientes — do registo do equipamento até à entrega — num só lugar, em tempo real.</p>
     </div>
-    <div class="field">
-      <label>Senha</label>
-      <input id="login-pass" type="password" autocomplete="current-password" placeholder="••••••" onkeydown="if(event.key==='Enter')App.login()">
+    <div class="login-copy">&copy; 2026 Assistência Técnica. Todos os direitos reservados.</div>
+  </div>
+
+  <!-- Painel formulário -->
+  <div class="login-form">
+    <div class="login-brandtop">
+      <span class="logo-mark"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10h3V7L6.5 3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8L7 10z"/></svg></span>
+      Assistência Técnica
     </div>
-    <p id="login-error" class="login-error hidden">Utilizador ou senha incorretos.</p>
-    <button class="btn primary" style="width:100%;margin-top:8px;padding:12px" onclick="App.login()">Entrar na plataforma</button>
-    <p class="sub" style="margin-top:16px;font-size:12px">Protótipo — contas de teste: <code>admin/admin</code>, <code>gscenter/123</code>, <code>tecnico/123</code>.</p>
+    <div class="login-form-inner">
+      <h2>Bem-vindo de volta!</h2>
+      <p class="login-sub">As contas são criadas pelo administrador. Entra com as tuas credenciais.</p>
+      <div class="lf-field">
+        <input id="login-user" autocomplete="username" placeholder="Utilizador" onkeydown="if(event.key==='Enter')App.login()">
+      </div>
+      <div class="lf-field">
+        <input id="login-pass" type="password" autocomplete="current-password" placeholder="Senha" onkeydown="if(event.key==='Enter')App.login()">
+      </div>
+      <p id="login-error" class="login-error hidden">Utilizador ou senha incorretos.</p>
+      <button class="btn dark login-btn" onclick="App.login()">Entrar</button>
+      <p class="lf-hint">Contas de teste: <code>admin/admin</code> · <code>gscenter/123</code> · <code>responsavel/123</code></p>
+    </div>
   </div>
 </div>
 
